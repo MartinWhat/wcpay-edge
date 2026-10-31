@@ -90,13 +90,13 @@ describe("safe manual Queue retry", () => {
 		await db
 			.prepare(
 				`INSERT INTO node_queue_messages (id, queue, body, status, attempts, available_at, created_at, updated_at)
-				 VALUES ('dead-1', 'gmpay-edge-webhooks', '{}', 'dead', 9, 0, 0, 0),
-				 ('dead-2', 'gmpay-edge-webhooks', '{}', 'dead', 9, 0, 0, 0),
-				 ('ready-1', 'gmpay-edge-payments', '{}', 'ready', 0, 0, 0, 0)`,
+				 VALUES ('dead-1', 'wcpay-edge-webhooks', '{}', 'dead', 9, 0, 0, 0),
+				 ('dead-2', 'wcpay-edge-webhooks', '{}', 'dead', 9, 0, 0, 0),
+				 ('ready-1', 'wcpay-edge-payments', '{}', 'ready', 0, 0, 0, 0)`,
 			)
 			.run();
 		await expect(loadDeadQueueMessageCounts(db)).resolves.toEqual(
-			new Map([["gmpay-edge-webhooks", 2]]),
+			new Map([["wcpay-edge-webhooks", 2]]),
 		);
 	});
 

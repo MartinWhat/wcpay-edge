@@ -63,10 +63,10 @@ describe("Queue invocation backpressure", () => {
 	});
 
 	it.each([
-		["gmpay-edge-payments", "payment", 1, 1],
-		["gmpay-edge-payments", "payment", 10, 2],
-		["gmpay-edge-webhooks", "webhook", 1, 1],
-		["gmpay-edge-webhooks", "webhook", 10, 5],
+		["wcpay-edge-payments", "payment", 1, 1],
+		["wcpay-edge-payments", "payment", 10, 2],
+		["wcpay-edge-webhooks", "webhook", 1, 1],
+		["wcpay-edge-webhooks", "webhook", 10, 5],
 	] as const)(
 		"bounds %s %s traffic with %i messages at %i active consumers",
 		async (queue, kind, count, expectedPeak) => {
@@ -104,7 +104,7 @@ describe("Queue invocation backpressure", () => {
 		try {
 			await handleQueue(
 				{
-					queue: "gmpay-edge-payments",
+					queue: "wcpay-edge-payments",
 					messages,
 				} as unknown as Parameters<typeof handleQueue>[0],
 				{ DB: {} as D1Database } as Env,
@@ -143,7 +143,7 @@ describe("Queue invocation backpressure", () => {
 		try {
 			await handleQueue(
 				{
-					queue: "gmpay-edge-webhooks",
+					queue: "wcpay-edge-webhooks",
 					messages,
 				} as unknown as Parameters<typeof handleQueue>[0],
 				{ DB: {} as D1Database } as Env,
@@ -171,7 +171,7 @@ describe("Queue invocation backpressure", () => {
 			expect(failure).toEqual({
 				event: "queue_message_failed",
 				invocationId: record.invocationId,
-				queue: "gmpay-edge-webhooks",
+				queue: "wcpay-edge-webhooks",
 				messageId: "webhook-1",
 				kind: "webhook",
 				errorName: "Error",
@@ -197,7 +197,7 @@ describe("Queue invocation backpressure", () => {
 
 		await handleQueue(
 			{
-				queue: "gmpay-edge-payments",
+				queue: "wcpay-edge-payments",
 				messages,
 			} as unknown as Parameters<typeof handleQueue>[0],
 			{ DB: {} as D1Database } as Env,

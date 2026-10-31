@@ -41,7 +41,7 @@ describe("Cloudflare Queue envelope rejection", () => {
 		try {
 			await handleQueue(
 				{
-					queue: "gmpay-edge-payments",
+					queue: "wcpay-edge-payments",
 					messages: [message],
 				} as unknown as Parameters<typeof handleQueue>[0],
 				{ DB: database } as Env,
@@ -79,7 +79,7 @@ describe("Cloudflare Queue envelope rejection", () => {
 			expect.objectContaining({
 				event: "queue_invocation_completed",
 				invocationId: expect.any(String),
-				queue: "gmpay-edge-payments",
+				queue: "wcpay-edge-payments",
 				batchSize: 1,
 				processedMessages: 1,
 				dedupeCount: 0,
@@ -94,8 +94,8 @@ describe("Cloudflare Queue envelope rejection", () => {
 	});
 
 	it.each([
-		["gmpay-edge-payments", 2],
-		["gmpay-edge-webhooks", 5],
+		["wcpay-edge-payments", 2],
+		["wcpay-edge-webhooks", 5],
 		["unknown-queue", 3],
 	])("limits %s message processing to %i", async (queue, expected) => {
 		let active = 0;
@@ -158,7 +158,7 @@ describe("Cloudflare Queue envelope rejection", () => {
 
 		await handleQueue(
 			{
-				queue: "gmpay-edge-webhooks",
+				queue: "wcpay-edge-webhooks",
 				messages,
 			} as unknown as Parameters<typeof handleQueue>[0],
 			{ DB: countedDatabase } as Env,
@@ -195,7 +195,7 @@ describe("Cloudflare Queue envelope rejection", () => {
 
 		await handleQueue(
 			{
-				queue: "gmpay-edge-payments",
+				queue: "wcpay-edge-payments",
 				messages,
 			} as unknown as Parameters<typeof handleQueue>[0],
 			{ DB: countedDatabase } as Env,
@@ -229,7 +229,7 @@ describe("Cloudflare Queue envelope rejection", () => {
 
 		await handleQueue(
 			{
-				queue: "gmpay-edge-payments",
+				queue: "wcpay-edge-payments",
 				messages: [message],
 			} as unknown as Parameters<typeof handleQueue>[0],
 			{ DB: database } as Env,
@@ -315,7 +315,7 @@ describe("Cloudflare Queue envelope rejection", () => {
 		const retry = vi.fn();
 		await handleQueue(
 			{
-				queue: "gmpay-edge-payments",
+				queue: "wcpay-edge-payments",
 				messages: [
 					{
 						id: "rate-sync-crypto",
@@ -362,7 +362,7 @@ describe("Cloudflare Queue envelope rejection", () => {
 
 		await handleQueue(
 			{
-				queue: "gmpay-edge-payments",
+				queue: "wcpay-edge-payments",
 				messages: [
 					{
 						id: "rpc-health",

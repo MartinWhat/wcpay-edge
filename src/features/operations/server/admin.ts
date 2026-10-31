@@ -252,7 +252,7 @@ export const getQueueOverviewFn = createServerFn({ method: "GET" }).handler(
 				pending: payments?.count ?? 0,
 				processing: 0,
 				failed: paymentError ? 1 : 0,
-				dead: deadMessages?.get("gmpay-edge-payments") ?? null,
+				dead: deadMessages?.get("wcpay-edge-payments") ?? null,
 				lastConsumedAt: payments?.last_scan
 					? new Date(payments.last_scan).toISOString()
 					: null,
@@ -265,7 +265,7 @@ export const getQueueOverviewFn = createServerFn({ method: "GET" }).handler(
 				pending: webhooks?.queued ?? 0,
 				processing: webhooks?.delivering ?? 0,
 				failed: Math.max(webhooks?.failed ?? 0, webhookError ? 1 : 0),
-				dead: deadMessages?.get("gmpay-edge-webhooks") ?? null,
+				dead: deadMessages?.get("wcpay-edge-webhooks") ?? null,
 				lastConsumedAt: null,
 				lastError: redactedAuditJson(webhookError?.after ?? null),
 			},

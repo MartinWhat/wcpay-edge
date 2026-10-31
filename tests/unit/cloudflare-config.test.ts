@@ -86,7 +86,7 @@ if (tool === "wrangler" && args[0] === "r2" && args[1] === "bucket" && args[2] =
 if (tool === "wrangler" && args[0] === "r2" && args[1] === "bucket" && args[2] === "create") writeFileSync(bucketMarker, "");
 if (tool === "wrangler" && args[0] === "kv" && args[1] === "namespace" && args[2] === "list") {
 	const exists = process.env.MISSING_KV !== "1" || existsSync(cacheMarker);
-	console.log(JSON.stringify(exists ? [{ id: "cache-id", title: "gmpay-edge-cache" }] : []));
+	console.log(JSON.stringify(exists ? [{ id: "cache-id", title: "wcpay-edge-cache" }] : []));
 }
 if (tool === "wrangler" && args[0] === "kv" && args[1] === "namespace" && args[2] === "create") writeFileSync(cacheMarker, "");
 if (tool === "vite" && args[0] === "build") {
@@ -112,36 +112,36 @@ if (tool === "vite" && args[0] === "build") {
 		expect(config.d1_databases).toEqual([
 			{
 				binding: "DB",
-				database_name: "gmpay-edge",
+				database_name: "wcpay-edge",
 				migrations_dir: "drizzle",
 			},
 		]);
 		expect(config.r2_buckets).toEqual([
-			{ binding: "FILES", bucket_name: "gmpay-edge-files" },
+			{ binding: "FILES", bucket_name: "wcpay-edge-files" },
 		]);
 		expect(config.kv_namespaces).toEqual([{ binding: "CACHE" }]);
 		expect(config.queues?.producers).toEqual([
-			{ binding: "WEBHOOK_QUEUE", queue: "gmpay-edge-webhooks" },
-			{ binding: "PAYMENT_QUEUE", queue: "gmpay-edge-payments" },
+			{ binding: "WEBHOOK_QUEUE", queue: "wcpay-edge-webhooks" },
+			{ binding: "PAYMENT_QUEUE", queue: "wcpay-edge-payments" },
 		]);
 		expect(config.queues?.consumers).toEqual([
 			{
-				queue: "gmpay-edge-webhooks",
+				queue: "wcpay-edge-webhooks",
 				max_batch_size: 10,
 				max_batch_timeout: 1,
 				max_concurrency: 5,
 				max_retries: 8,
 				retry_delay: 15,
-				dead_letter_queue: "gmpay-edge-webhooks-dlq",
+				dead_letter_queue: "wcpay-edge-webhooks-dlq",
 			},
 			{
-				queue: "gmpay-edge-payments",
+				queue: "wcpay-edge-payments",
 				max_batch_size: 10,
 				max_batch_timeout: 1,
 				max_concurrency: 2,
 				max_retries: 5,
 				retry_delay: 15,
-				dead_letter_queue: "gmpay-edge-payments-dlq",
+				dead_letter_queue: "wcpay-edge-payments-dlq",
 			},
 		]);
 		expect(config.triggers?.crons).toEqual(["* * * * *"]);
@@ -176,12 +176,12 @@ if (tool === "vite" && args[0] === "build") {
 		const commands = await readCommands(fixtureDirectory);
 		const createIndex = commands.findIndex(
 			({ tool, args }) =>
-				tool === "wrangler" && args.join(" ") === "d1 create gmpay-edge",
+				tool === "wrangler" && args.join(" ") === "d1 create wcpay-edge",
 		);
 		const migrationIndex = commands.findIndex(
 			({ tool, args }) =>
 				tool === "wrangler" &&
-				args.join(" ") === "d1 migrations apply gmpay-edge --remote",
+				args.join(" ") === "d1 migrations apply wcpay-edge --remote",
 		);
 		const buildIndex = commands.findIndex(
 			({ tool, args }) => tool === "vite" && args.join(" ") === "build",
@@ -189,12 +189,12 @@ if (tool === "vite" && args[0] === "build") {
 		expect(createIndex).toBeGreaterThanOrEqual(0);
 		expect(
 			commands.some(
-				({ args }) => args.join(" ") === "kv namespace create gmpay-edge-cache",
+				({ args }) => args.join(" ") === "kv namespace create wcpay-edge-cache",
 			),
 		).toBe(true);
 		expect(
 			commands.some(
-				({ args }) => args.join(" ") === "r2 bucket create gmpay-edge-files",
+				({ args }) => args.join(" ") === "r2 bucket create wcpay-edge-files",
 			),
 		).toBe(true);
 		expect(migrationIndex).toBeGreaterThan(createIndex);
@@ -247,7 +247,7 @@ if (tool === "vite" && args[0] === "build") {
 			commands.some(
 				({ tool, args }) =>
 					tool === "wrangler" &&
-					args.join(" ") === "d1 migrations apply gmpay-edge --remote",
+					args.join(" ") === "d1 migrations apply wcpay-edge --remote",
 			),
 		).toBe(true);
 		expect(

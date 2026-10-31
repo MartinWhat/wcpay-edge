@@ -19,8 +19,8 @@ import {
 import type { RuntimeEnv } from "#/server/runtime/types";
 import { runMaintenance } from "#/server/scheduled";
 
-const WEBHOOK_QUEUE_NAME = "gmpay-edge-webhooks";
-const PAYMENT_QUEUE_NAME = "gmpay-edge-payments";
+const WEBHOOK_QUEUE_NAME = "wcpay-edge-webhooks";
+const PAYMENT_QUEUE_NAME = "wcpay-edge-payments";
 
 export type NodeApplication = {
 	env: RuntimeEnv;

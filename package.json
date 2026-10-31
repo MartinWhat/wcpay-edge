@@ -67,7 +67,7 @@
     "check": "biome check",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:migrate:local": "wrangler d1 migrations apply gmpay-edge --local",
+    "db:migrate:local": "wrangler d1 migrations apply wcpay-edge --local",
     "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
     "db:push": "drizzle-kit push",
     "db:pull": "drizzle-kit pull",

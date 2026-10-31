@@ -141,8 +141,8 @@ function trackQueueMessage(
 }
 
 function queueProcessingConcurrency(queue: string) {
-	if (queue === "gmpay-edge-payments") return 2;
-	if (queue === "gmpay-edge-webhooks") return 5;
+	if (queue === "wcpay-edge-payments") return 2;
+	if (queue === "wcpay-edge-webhooks") return 5;
 	return 3;
 }
 
@@ -233,8 +233,8 @@ async function processQueueMessage(
 }
 
 function queueExpectedMessageKind(queue: string) {
-	if (queue === "gmpay-edge-webhooks") return "webhook" as const;
-	if (queue === "gmpay-edge-payments") return "payment" as const;
+	if (queue === "wcpay-edge-webhooks") return "webhook" as const;
+	if (queue === "wcpay-edge-payments") return "payment" as const;
 	return null;
 }
 
