@@ -54,7 +54,7 @@
     "bundle:report": "bun run scripts/bundle-report.ts",
     "preview": "vite preview",
     "predeploy": "bun run scripts/build.ts --remote --skip-workers-ci",
-    "deploy": "wrangler deploy",
+    "deploy": "wrangler deploy --config dist/server/wrangler.json",
     "cf-typegen": "wrangler types",
     "commitlint": "commitlint",
     "hooks:install": "lefthook install",

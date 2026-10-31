@@ -155,7 +155,9 @@ if (tool === "vite" && args[0] === "build") {
 		expect(packageJson.scripts?.predeploy).toBe(
 			"bun run scripts/build.ts --remote --skip-workers-ci",
 		);
-		expect(packageJson.scripts?.deploy).toBe("wrangler deploy");
+		expect(packageJson.scripts?.deploy).toBe(
+			"wrangler deploy --config dist/server/wrangler.json",
+		);
 		expect(packageJson.scripts?.["db:migrate:remote"]).toBe(
 			"wrangler d1 migrations apply DB --remote",
 		);
@@ -236,7 +238,10 @@ if (tool === "vite" && args[0] === "build") {
 			0,
 		);
 		expect(await readCommands(fixtureDirectory)).toEqual([
-			{ tool: "wrangler", args: ["deploy"] },
+			{
+				tool: "wrangler",
+				args: ["deploy", "--config", "dist/server/wrangler.json"],
+			},
 		]);
 	});
 
@@ -255,7 +260,10 @@ if (tool === "vite" && args[0] === "build") {
 				({ tool, args }) => tool === "vite" && args.join(" ") === "build",
 			),
 		).toBe(true);
-		expect(commands.at(-1)).toEqual({ tool: "wrangler", args: ["deploy"] });
+		expect(commands.at(-1)).toEqual({
+			tool: "wrangler",
+			args: ["deploy", "--config", "dist/server/wrangler.json"],
+		});
 	});
 
 	it("keeps TanStack Start on its streaming SSR handler", async () => {
