@@ -11,7 +11,7 @@ import { PageHeader } from "#/layouts/components/page-header";
 import { useCurrentProTableUrlState } from "#/lib/pro-table-url-state";
 import { m } from "#/paraglide/messages";
 
-type Kind = "chain" | "exchange" | "wallet";
+type Kind = "chain" | "exchange" | "wallet" | "fiat";
 type Method = Awaited<ReturnType<typeof listPaymentMethodsFn>>[number];
 type MethodGroup = {
 	kind: Kind;
@@ -127,5 +127,6 @@ function groupMethods(methods: Method[]) {
 function kindLabel(kind: Kind) {
 	if (kind === "chain") return m.nav_networks();
 	if (kind === "exchange") return m.nav_exchanges();
-	return m.nav_wallets();
+	if (kind === "wallet") return m.nav_wallets();
+	return "Fiat";
 }

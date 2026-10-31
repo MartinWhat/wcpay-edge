@@ -489,6 +489,7 @@ function showError(error: unknown) {
 }
 
 function paymentKindLabel(kind: OrderRecord["railKind"]) {
+	if (kind === "fiat") return "Fiat";
 	return {
 		chain: m.nav_networks(),
 		exchange: m.nav_exchanges(),

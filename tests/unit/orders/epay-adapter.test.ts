@@ -39,8 +39,11 @@ describe("EPay compatibility adapter", () => {
 		});
 	});
 
-	it("keeps the existing selectable alias without defaulting to TRON", () => {
-		expect(epaySelection("alipay")).toBeNull();
+	it("maps the Alipay alias to its fiat rail and keeps an empty type selectable", () => {
+		expect(epaySelection("alipay")).toEqual({
+			asset: "CNY",
+			network: "alipay",
+		});
 		expect(epaySelection(undefined)).toBeNull();
 		expect(
 			parseEpayInput({

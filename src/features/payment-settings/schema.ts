@@ -70,3 +70,12 @@ export const updateProviderPaymentConnectionInput = paymentConnectionIdInput
 		message: "Provider API address must use HTTPS",
 		path: ["endpoint"],
 	});
+
+export const updateFiatPaymentConnectionInput = paymentConnectionIdInput
+	.extend({
+		name: z.string().trim().min(1).max(100),
+		priority: z.number().int().min(0).max(10_000),
+		enabled: z.boolean(),
+		credentials: z.record(z.string(), z.string().trim().max(16_384)),
+	})
+	.strict();

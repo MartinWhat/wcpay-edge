@@ -99,9 +99,9 @@ describe("system installation", { timeout: 30_000 }, () => {
 			root_users: 1,
 			audits: 1,
 			runtime_settings: 4,
-			payment_rails: 11,
-			payment_ingresses: 15,
-			payment_assets: 28,
+			payment_rails: 12,
+			payment_ingresses: 16,
+			payment_assets: 29,
 			receiving_methods: 0,
 			exchange_rates: initialExchangeRates.length,
 			telegram_bots: 0,
@@ -239,6 +239,7 @@ describe("system installation", { timeout: 30_000 }, () => {
 			({ rail, code, kind, decimals }) => `${rail}:${code}:${kind}:${decimals}`,
 		);
 		expect(matrix).toEqual([
+			"alipay:CNY:fiat:2",
 			"aptos:APT:native:8",
 			"aptos:USDC:token:6",
 			"aptos:USDT:token:6",
@@ -305,7 +306,11 @@ describe("system installation", { timeout: 30_000 }, () => {
 		expect(healthTargets.every((target) => target.adapter !== null)).toBe(true);
 		const providerEndpoints = await database
 			.prepare(
-				"SELECT rail_code, endpoint, enabled FROM payment_ingresses WHERE type = 'provider' ORDER BY rail_code",
+				`SELECT connection.rail_code, connection.endpoint, connection.enabled
+				 FROM payment_ingresses connection
+				 JOIN payment_rails rail ON rail.code = connection.rail_code
+				 WHERE connection.type = 'provider' AND rail.kind != 'fiat'
+				 ORDER BY connection.rail_code`,
 			)
 			.all<{ rail_code: string; endpoint: string; enabled: number }>();
 		expect(providerEndpoints.results).toEqual([
@@ -325,6 +330,22 @@ describe("system installation", { timeout: 30_000 }, () => {
 				enabled: 1,
 			},
 		]);
+		const fiatEndpoints = await database
+			.prepare(
+				`SELECT connection.rail_code, connection.endpoint, connection.enabled
+				 FROM payment_ingresses connection
+				 JOIN payment_rails rail ON rail.code = connection.rail_code
+				 WHERE connection.type = 'provider' AND rail.kind = 'fiat'
+				 ORDER BY connection.rail_code`,
+			)
+			.all<{ rail_code: string; endpoint: string; enabled: number }>();
+		expect(fiatEndpoints.results).toEqual([
+			{
+				rail_code: "alipay",
+				endpoint: "https://openapi.alipay.com",
+				enabled: 1,
+			},
+		]);
 		await expect(
 			database
 				.prepare(
@@ -340,7 +361,7 @@ describe("system installation", { timeout: 30_000 }, () => {
 				default_confirmations: number;
 				rail: string;
 			}>();
-		expect(methodPolicy.results).toHaveLength(28);
+		expect(methodPolicy.results).toHaveLength(29);
 		expect(
 			methodPolicy.results.find((method) => method.rail === "tron"),
 		).toMatchObject({ default_confirmations: 20 });

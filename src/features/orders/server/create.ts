@@ -85,12 +85,24 @@ export async function createOrder(
 	requestUrl: string,
 	context: OrderCreationContext = {},
 ): Promise<ApiOrder> {
+	if (input.paymentNetwork === "alipay" && input.currency !== "CNY")
+		throw new OrderServiceError(
+			"currency_not_supported",
+			"Alipay orders must use CNY",
+			422,
+		);
 	const order = await createOrderRecord(db, input, requestUrl, context);
 	if (order.paymentNetwork === "okpay") {
 		const { initializeOkPayOrder } = await import(
 			"#/features/orders/server/okpay-hosted"
 		);
 		await initializeOkPayOrder(db, order, input, { deleteOrder: true });
+	}
+	if (order.paymentNetwork === "alipay") {
+		const { initializeAlipayOrder } = await import(
+			"#/features/orders/server/alipay-hosted"
+		);
+		await initializeAlipayOrder(db, order, input, { deleteOrder: true });
 	}
 	return order;
 }
@@ -207,8 +219,10 @@ async function createOrderFromReceivingMethod(
 		assetDecimals: method.decimals,
 	});
 	let paymentAmount =
-		exchangeRateQuote?.paymentAmount ??
-		(await quotePaymentAmount(db, paymentInput, method.decimals));
+		method.rail_code === "alipay"
+			? input.amount
+			: (exchangeRateQuote?.paymentAmount ??
+				(await quotePaymentAmount(db, paymentInput, method.decimals)));
 	const expectedAmountUnits = decimalToUnits(
 		paymentAmount,
 		method.decimals,

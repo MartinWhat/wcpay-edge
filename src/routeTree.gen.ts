@@ -74,6 +74,7 @@ import { Route as AdminAccessModulesRouteImport } from './routes/admin/access/mo
 import { Route as AdminPaymentSettingsRatesIndexRouteImport } from './routes/admin/payment-settings/rates/index'
 import { Route as ApiTelegramBotIdWebhookRouteImport } from './routes/api/telegram/$botId/webhook'
 import { Route as ApiProvidersOkpayNotifyRouteImport } from './routes/api/providers/okpay/notify'
+import { Route as ApiProvidersAlipayNotifyRouteImport } from './routes/api/providers/alipay/notify'
 import { Route as ApiProvidersAlchemySourceIdRouteImport } from './routes/api/providers/alchemy/$sourceId'
 import { Route as ApiCheckoutOrderIdReviewRouteImport } from './routes/api/checkout/$orderId/review'
 import { Route as AdminPaymentSettingsRatesFiatRouteImport } from './routes/admin/payment-settings/rates/fiat'
@@ -419,6 +420,12 @@ const ApiProvidersOkpayNotifyRoute = ApiProvidersOkpayNotifyRouteImport.update({
   path: '/api/providers/okpay/notify',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiProvidersAlipayNotifyRoute =
+  ApiProvidersAlipayNotifyRouteImport.update({
+    id: '/api/providers/alipay/notify',
+    path: '/api/providers/alipay/notify',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiProvidersAlchemySourceIdRoute =
   ApiProvidersAlchemySourceIdRouteImport.update({
     id: '/api/providers/alchemy/$sourceId',
@@ -537,6 +544,7 @@ export interface FileRoutesByFullPath {
   '/admin/webhooks/': typeof AdminWebhooksIndexRoute
   '/admin/payment-settings/rates/fiat': typeof AdminPaymentSettingsRatesFiatRoute
   '/api/checkout/$orderId/review': typeof ApiCheckoutOrderIdReviewRoute
+  '/api/providers/alipay/notify': typeof ApiProvidersAlipayNotifyRoute
   '/api/providers/alchemy/$sourceId': typeof ApiProvidersAlchemySourceIdRoute
   '/api/providers/okpay/notify': typeof ApiProvidersOkpayNotifyRoute
   '/api/telegram/$botId/webhook': typeof ApiTelegramBotIdWebhookRoute
@@ -603,6 +611,7 @@ export interface FileRoutesByTo {
   '/admin/webhooks': typeof AdminWebhooksIndexRoute
   '/admin/payment-settings/rates/fiat': typeof AdminPaymentSettingsRatesFiatRoute
   '/api/checkout/$orderId/review': typeof ApiCheckoutOrderIdReviewRoute
+  '/api/providers/alipay/notify': typeof ApiProvidersAlipayNotifyRoute
   '/api/providers/alchemy/$sourceId': typeof ApiProvidersAlchemySourceIdRoute
   '/api/providers/okpay/notify': typeof ApiProvidersOkpayNotifyRoute
   '/api/telegram/$botId/webhook': typeof ApiTelegramBotIdWebhookRoute
@@ -680,6 +689,7 @@ export interface FileRoutesById {
   '/admin/webhooks/': typeof AdminWebhooksIndexRoute
   '/admin/payment-settings/rates/fiat': typeof AdminPaymentSettingsRatesFiatRoute
   '/api/checkout/$orderId/review': typeof ApiCheckoutOrderIdReviewRoute
+  '/api/providers/alipay/notify': typeof ApiProvidersAlipayNotifyRoute
   '/api/providers/alchemy/$sourceId': typeof ApiProvidersAlchemySourceIdRoute
   '/api/providers/okpay/notify': typeof ApiProvidersOkpayNotifyRoute
   '/api/telegram/$botId/webhook': typeof ApiTelegramBotIdWebhookRoute
@@ -756,6 +766,7 @@ export interface FileRouteTypes {
     | '/admin/webhooks/'
     | '/admin/payment-settings/rates/fiat'
     | '/api/checkout/$orderId/review'
+    | '/api/providers/alipay/notify'
     | '/api/providers/alchemy/$sourceId'
     | '/api/providers/okpay/notify'
     | '/api/telegram/$botId/webhook'
@@ -925,6 +936,7 @@ export interface RootRouteChildren {
   CheckoutOrderIdRoute: typeof CheckoutOrderIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiCheckoutOrderIdReviewRoute: typeof ApiCheckoutOrderIdReviewRoute
+  ApiProvidersAlipayNotifyRoute: typeof ApiProvidersAlipayNotifyRoute
   ApiProvidersAlchemySourceIdRoute: typeof ApiProvidersAlchemySourceIdRoute
   ApiProvidersOkpayNotifyRoute: typeof ApiProvidersOkpayNotifyRoute
   ApiTelegramBotIdWebhookRoute: typeof ApiTelegramBotIdWebhookRoute
@@ -1393,6 +1405,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiProvidersOkpayNotifyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/providers/alipay/notify': {
+      id: '/api/providers/alipay/notify'
+      path: '/api/providers/alipay/notify'
+      fullPath: '/api/providers/alipay/notify'
+      preLoaderRoute: typeof ApiProvidersAlipayNotifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/providers/alchemy/$sourceId': {
       id: '/api/providers/alchemy/$sourceId'
       path: '/api/providers/alchemy/$sourceId'
@@ -1675,6 +1694,7 @@ const rootRouteChildren: RootRouteChildren = {
   CheckoutOrderIdRoute: CheckoutOrderIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiCheckoutOrderIdReviewRoute: ApiCheckoutOrderIdReviewRoute,
+  ApiProvidersAlipayNotifyRoute: ApiProvidersAlipayNotifyRoute,
   ApiProvidersAlchemySourceIdRoute: ApiProvidersAlchemySourceIdRoute,
   ApiProvidersOkpayNotifyRoute: ApiProvidersOkpayNotifyRoute,
   ApiTelegramBotIdWebhookRoute: ApiTelegramBotIdWebhookRoute,

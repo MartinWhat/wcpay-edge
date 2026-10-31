@@ -75,7 +75,7 @@ type AdminOrderRow = {
 	asset_code: string;
 	network: string;
 	network_name: string;
-	rail_kind: "chain" | "exchange" | "wallet" | "";
+	rail_kind: "chain" | "exchange" | "wallet" | "fiat" | "";
 	decimals: number;
 	address: string | null;
 	adapter: string | null;

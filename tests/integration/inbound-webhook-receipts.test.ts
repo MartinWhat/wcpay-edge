@@ -27,7 +27,12 @@ describe("inbound webhook receipts", () => {
 	it("keeps every supported inbound endpoint visible", () => {
 		expect(
 			inboundWebhookCatalogEndpoints.map((endpoint) => endpoint.code),
-		).toEqual(["okpay.notify", "alchemy.address_activity", "telegram.update"]);
+		).toEqual([
+			"alipay.notify",
+			"okpay.notify",
+			"alchemy.address_activity",
+			"telegram.update",
+		]);
 		expect(inboundWebhookEndpoints.map((endpoint) => endpoint.code)).toContain(
 			"alchemy.address_activity",
 		);

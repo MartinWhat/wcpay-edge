@@ -40,7 +40,7 @@ export async function queryAdminDashboard(db: ReadDatabase, now = Date.now()) {
 		db.prepare("SELECT COUNT(*) AS total FROM order_payments"),
 		db.prepare(`SELECT COUNT(*) AS total,
 				 SUM(CASE WHEN connection.enabled = 1
-				  AND (rail.kind IN ('exchange', 'wallet')
+				  AND (rail.kind IN ('exchange', 'wallet', 'fiat')
 				   OR connection.health_status = 'healthy') THEN 1 ELSE 0 END) AS healthy
 				 FROM payment_ingresses connection
 				 JOIN payment_rails rail ON rail.code = connection.rail_code`),

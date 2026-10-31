@@ -42,7 +42,7 @@ type OrderForSelection = {
 	current_network: string;
 	current_network_name: string;
 	current_receiving_method_name: string;
-	current_rail_kind: "chain" | "exchange" | "wallet" | "";
+	current_rail_kind: "chain" | "exchange" | "wallet" | "fiat" | "";
 	receiving_method_id: string | null;
 	payment_count: number;
 	pending_review_count: number;
@@ -86,7 +86,7 @@ export async function listCheckoutPaymentOptions(
 			 AND rm.target_value != ''
 			 AND EXISTS (SELECT 1 FROM payment_ingresses pc WHERE pc.rail_code = a.rail_code
 			  AND pc.enabled = 1
-			  AND (pr.kind IN ('exchange', 'wallet') OR pc.health_status = 'healthy'))
+			  AND (pr.kind IN ('exchange', 'wallet', 'fiat') OR pc.health_status = 'healthy'))
 			 ORDER BY rm.sort_order, rm.name`,
 		)
 		.all<{
@@ -97,7 +97,7 @@ export async function listCheckoutPaymentOptions(
 			decimals: number;
 			network: string;
 			network_name: string;
-			rail_kind: "chain" | "exchange" | "wallet";
+			rail_kind: "chain" | "exchange" | "wallet" | "fiat";
 			min_amount_minor: string | null;
 			max_amount_minor: string | null;
 		}>();

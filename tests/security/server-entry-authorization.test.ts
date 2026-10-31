@@ -118,6 +118,7 @@ const permissionContracts = [
 		[
 			"updateProviderConnectionFn",
 			"updateChainConnectionFn",
+			"updateFiatConnectionFn",
 			"setPaymentConnectionEnabledFn",
 			"updateManualRatesFn",
 			"saveRateSyncSettingsFn",

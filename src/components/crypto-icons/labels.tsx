@@ -21,7 +21,7 @@ export function ProviderLabel({
 	name,
 	provider,
 }: {
-	kind: "exchange" | "wallet";
+	kind: "exchange" | "wallet" | "fiat";
 	name: string;
 	provider: string;
 }) {

@@ -19,7 +19,7 @@ export async function testPaymentConnection(
 		.bind(connectionId)
 		.first<{
 			rail_code: string;
-			kind: "chain" | "exchange" | "wallet";
+			kind: "chain" | "exchange" | "wallet" | "fiat";
 		}>();
 	if (!connection) throw paymentSettingsError("payment_connection_not_found");
 	const adapter =

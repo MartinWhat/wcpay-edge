@@ -30,7 +30,9 @@ export const apiKeys = sqliteTable(
 export const paymentRails = sqliteTable("payment_rails", {
 	code: text("code").primaryKey(),
 	name: text("name").notNull(),
-	kind: text("kind", { enum: ["chain", "exchange", "wallet"] }).notNull(),
+	kind: text("kind", {
+		enum: ["chain", "exchange", "wallet", "fiat"],
+	}).notNull(),
 	adapter: text("adapter").notNull(),
 	metadata: text("metadata", { mode: "json" }).$type<Record<string, unknown>>(),
 	...timestamps,
@@ -45,7 +47,9 @@ export const paymentAssets = sqliteTable(
 			.references(() => paymentRails.code),
 		code: text("code").notNull(),
 		symbol: text("symbol").notNull(),
-		kind: text("kind", { enum: ["native", "token", "external"] }).notNull(),
+		kind: text("kind", {
+			enum: ["native", "token", "external", "fiat"],
+		}).notNull(),
 		contractAddress: text("contract_address"),
 		decimals: integer("decimals").notNull(),
 		defaultConfirmations: integer("default_confirmations").notNull().default(1),
@@ -333,7 +337,7 @@ export const orderPaymentSnapshots = sqliteTable(
 		receivingMethodName: text("receiving_method_name").notNull(),
 		railCode: text("rail_code").notNull(),
 		railKind: text("rail_kind", {
-			enum: ["chain", "exchange", "wallet"],
+			enum: ["chain", "exchange", "wallet", "fiat"],
 		}).notNull(),
 		assetId: text("asset_id").notNull(),
 		assetCode: text("asset_code").notNull(),
@@ -368,6 +372,39 @@ export const orderPaymentSnapshots = sqliteTable(
 			sql`LOWER(${table.targetValue})`,
 			table.assetCode,
 		),
+	],
+);
+
+/**
+ * Provider settlement is deliberately separate from blockchain observations.
+ * Fiat rails such as Alipay use this table for atomic, idempotent callbacks.
+ */
+export const providerPayments = sqliteTable(
+	"provider_payments",
+	{
+		id: text("id").primaryKey(),
+		orderId: text("order_id")
+			.notNull()
+			.references(() => orders.id),
+		railCode: text("rail_code")
+			.notNull()
+			.references(() => paymentRails.code),
+		providerTradeId: text("provider_trade_id").notNull(),
+		amountMinor: text("amount_minor").notNull(),
+		currency: text("currency").notNull(),
+		currencyDecimals: integer("currency_decimals").notNull(),
+		status: text("status", {
+			enum: ["pending", "succeeded", "rejected", "refunded"],
+		}).notNull(),
+		observedAt: integer("observed_at", { mode: "timestamp_ms" }).notNull(),
+		...timestamps,
+	},
+	(table) => [
+		uniqueIndex("provider_payments_rail_trade_uidx").on(
+			table.railCode,
+			table.providerTradeId,
+		),
+		index("provider_payments_order_idx").on(table.orderId),
 	],
 );
 

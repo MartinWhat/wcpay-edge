@@ -119,7 +119,8 @@ export function toEpayOrderInput(input: EpayInput): CreateOrderInput {
 }
 
 export function epaySelection(value: string | undefined) {
-	if (!value || value === "alipay") return null;
+	if (!value) return null;
+	if (value === "alipay") return { asset: "CNY", network: "alipay" };
 	const match = value.match(epayAssetNetworkType);
 	if (!match) throw new Error("Unsupported EPay payment type");
 	const [, asset, network] = match;

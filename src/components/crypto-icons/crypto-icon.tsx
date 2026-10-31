@@ -34,11 +34,11 @@ export function ProviderIcon({
 	provider,
 	...props
 }: Omit<ImgHTMLAttributes<HTMLImageElement>, "src"> & {
-	kind: "exchange" | "wallet";
+	kind: "exchange" | "wallet" | "fiat";
 	provider: string;
 }) {
 	const [index, setIndex] = useState(0);
-	const sources = providerIconUrls(kind, provider);
+	const sources = providerIconUrls(kind === "fiat" ? "wallet" : kind, provider);
 	const src = sources[index];
 	if (!src) return null;
 	return (

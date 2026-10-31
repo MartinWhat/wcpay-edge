@@ -75,12 +75,23 @@ export const initialWalletRails = [
 	},
 ] as const;
 
+export const initialFiatRails = [
+	{
+		code: "alipay",
+		name: "Alipay",
+		apiUrl: "https://openapi.alipay.com",
+	},
+] as const;
+
 const officialProviderApiUrls: Readonly<Record<string, string>> = {
 	...Object.fromEntries(
 		initialExchangeRails.map((provider) => [provider.code, provider.apiUrl]),
 	),
 	...Object.fromEntries(
 		initialWalletRails.map((provider) => [provider.code, provider.apiUrl]),
+	),
+	...Object.fromEntries(
+		initialFiatRails.map((provider) => [provider.code, provider.apiUrl]),
 	),
 };
 
@@ -112,6 +123,13 @@ export const initialPaymentRails = [
 		kind: "wallet" as const,
 		adapter: wallet.code,
 		metadata: {},
+	})),
+	...initialFiatRails.map((provider) => ({
+		code: provider.code,
+		name: provider.name,
+		kind: "fiat" as const,
+		adapter: provider.code,
+		metadata: { currency: "CNY" },
 	})),
 ] as const;
 
@@ -330,6 +348,7 @@ export const initialPaymentAssets = [
 	asset("okx-usdc", "USDC", "okx", "USDC", "external", null, 8),
 	asset("okpay-usdt", "USDT", "okpay", "USDT", "external", null, 8),
 	asset("okpay-trx", "TRX", "okpay", "TRX", "external", null, 6),
+	asset("alipay-cny", "CNY", "alipay", "CNY", "fiat", null, 2),
 ] as const;
 
 export const initialPaymentConnections = [
@@ -362,6 +381,16 @@ export const initialPaymentConnections = [
 		name: wallet.name,
 		type: "provider" as const,
 		endpoint: wallet.apiUrl,
+		priority: 100,
+		enabled: true,
+		healthStatus: "unknown" as const,
+	})),
+	...initialFiatRails.map((provider) => ({
+		id: `connection-${provider.code}-default`,
+		railCode: provider.code,
+		name: provider.name,
+		type: "provider" as const,
+		endpoint: provider.apiUrl,
 		priority: 100,
 		enabled: true,
 		healthStatus: "unknown" as const,
@@ -400,7 +429,7 @@ function asset(
 	code: string,
 	network: string,
 	symbol: string,
-	kind: "native" | "token" | "external",
+	kind: "native" | "token" | "external" | "fiat",
 	contractAddress: string | null,
 	decimals: number,
 ) {

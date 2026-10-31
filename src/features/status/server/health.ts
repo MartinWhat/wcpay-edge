@@ -131,7 +131,7 @@ async function checkDatabaseAndReceivingMethods(db?: D1Database): Promise<{
 				 WHERE rm.enabled = 1 AND rm.target_value != ''
 				 AND EXISTS (SELECT 1 FROM payment_ingresses pc
 				  WHERE pc.rail_code = pa.rail_code AND pc.enabled = 1
-				  AND (rail.kind IN ('exchange', 'wallet')
+				  AND (rail.kind IN ('exchange', 'wallet', 'fiat')
 				   OR pc.health_status IN ('healthy', 'degraded')))`,
 			)
 			.first<{ receiving_count: number }>();

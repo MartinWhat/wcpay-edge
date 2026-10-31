@@ -41,6 +41,7 @@ import {
 	setPaymentConnectionEnabledFn,
 	testPaymentConnectionFn,
 	updateChainConnectionFn,
+	updateFiatConnectionFn,
 	updateProviderConnectionFn,
 } from "#/features/payment-settings/server/connection-functions";
 import { webhookOperationErrorMessage } from "#/features/webhooks/error-message";
@@ -138,7 +139,7 @@ export function PaymentIngressesPage() {
 					checked={Boolean(row.original.enabled)}
 					disabled={
 						toggle.isPending ||
-						row.original.kind !== "chain" ||
+						(row.original.kind !== "chain" && row.original.kind !== "fiat") ||
 						row.original.type === "provider_webhook"
 					}
 					onCheckedChange={(enabled) =>
@@ -209,13 +210,23 @@ export function PaymentIngressesPage() {
 			accessorKey: "health_status",
 			header: m.infrastructure_health(),
 			cell: ({ row }) =>
-				row.original.kind === "chain" ? (
+				row.original.kind === "chain" || row.original.kind === "fiat" ? (
 					<Badge
 						variant={
-							row.original.health_status === "healthy" ? "default" : "secondary"
+							row.original.kind === "fiat"
+								? row.original.has_fiat_credentials
+									? "default"
+									: "secondary"
+								: row.original.health_status === "healthy"
+									? "default"
+									: "secondary"
 						}
 					>
-						{healthStatusLabel(row.original.health_status)}
+						{row.original.kind === "fiat"
+							? row.original.has_fiat_credentials
+								? "Configured"
+								: m.common_not_configured()
+							: healthStatusLabel(row.original.health_status)}
 					</Badge>
 				) : (
 					<span className="text-muted-foreground">—</span>
@@ -408,7 +419,20 @@ export function PaymentIngressesPage() {
 					table={{ stickyHeader: true }}
 				/>
 			</div>
-			{configuringProvider ? (
+			{configuringProvider?.kind === "fiat" ? (
+				<FiatProviderForm
+					key={configuringProvider.id}
+					connection={configuringProvider}
+					open
+					onOpenChange={(open) => {
+						if (!open) setConfiguringProvider(null);
+					}}
+					onSaved={async () => {
+						setConfiguringProvider(null);
+						await refresh();
+					}}
+				/>
+			) : configuringProvider ? (
 				<ProviderConfigurationForm
 					key={configuringProvider.id}
 					connection={configuringProvider}
@@ -714,10 +738,86 @@ function ProviderConfigurationForm({
 	);
 }
 
+function FiatProviderForm({
+	connection,
+	open,
+	onOpenChange,
+	onSaved,
+}: {
+	connection: IngressRow;
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
+	onSaved: () => Promise<unknown>;
+}) {
+	return (
+		<ModalForm
+			open={open}
+			onOpenChange={onOpenChange}
+			title="Configure Alipay"
+			description={
+				connection.has_fiat_credentials
+					? "Re-enter the application private key and Alipay public key to rotate credentials."
+					: "Store the Alipay application credentials encrypted on this instance."
+			}
+			schema={[
+				{ name: "name", label: m.common_name(), required: true },
+				{
+					name: "priority",
+					label: m.infrastructure_priority(),
+					valueType: "text",
+					required: true,
+					fieldProps: { type: "number", min: 0, max: 10000 },
+				},
+				{
+					name: "appId",
+					label: "Alipay App ID",
+					required: true,
+				},
+				{
+					name: "privateKey",
+					label: "Application private key",
+					required: true,
+					fieldProps: { type: "password" },
+				},
+				{
+					name: "alipayPublicKey",
+					label: "Alipay public key",
+					required: true,
+					fieldProps: { type: "password" },
+				},
+			]}
+			initialValues={{
+				name: connection.name,
+				priority: connection.priority,
+			}}
+			onFinish={async (values) => {
+				await updateFiatConnectionFn({
+					data: {
+						id: connection.id,
+						name: String(values.name ?? ""),
+						priority: Number(values.priority ?? 100),
+						enabled: Boolean(connection.enabled),
+						credentials: {
+							appId: String(values.appId ?? ""),
+							privateKey: String(values.privateKey ?? ""),
+							alipayPublicKey: String(values.alipayPublicKey ?? ""),
+							keyType: "PKCS8",
+						},
+					},
+				});
+				await onSaved();
+				toast.success(m.payment_config_saved());
+			}}
+			onFinishFailed={showError}
+		/>
+	);
+}
+
 function kindLabel(kind: IngressRow["kind"]) {
 	if (kind === "chain") return m.nav_networks();
 	if (kind === "exchange") return m.nav_exchanges();
-	return m.nav_wallets();
+	if (kind === "wallet") return m.nav_wallets();
+	return "Fiat";
 }
 
 function transportBadgeClass(transport: IngressRow["transport"]) {

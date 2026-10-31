@@ -16,6 +16,8 @@ export function paymentSettingsOperationErrorMessage(error: unknown) {
 			return m.payment_settings_error_rail_connection_managed();
 		case "payment_connection_unhealthy":
 			return m.payment_settings_error_connection_unhealthy();
+		case "payment_connection_not_configured":
+			return m.receiving_configuration_required();
 		case "payment_method_not_found":
 			return m.payment_settings_error_method_not_found();
 		case "receiving_method_mixed_rail":

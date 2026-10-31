@@ -3,6 +3,14 @@ import { claimFixedWindowRateLimit } from "#/server/rate-limit";
 
 export const inboundWebhookEndpoints = [
 	{
+		id: "inbound-alipay-notify",
+		code: "alipay.notify",
+		name: "Alipay payment notification",
+		path: "/api/providers/alipay/notify",
+		handler: "alipay.notify",
+		kind: "provider" as const,
+	},
+	{
 		id: "inbound-okpay-notify",
 		code: "okpay.notify",
 		name: "OKPay payment notification",

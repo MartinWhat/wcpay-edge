@@ -3,6 +3,7 @@ import {
 	initialChainConnections,
 	initialChainRails,
 	initialExchangeRails,
+	initialFiatRails,
 	initialPaymentAssets,
 	initialPaymentConnections,
 	initialPaymentRails,
@@ -76,5 +77,34 @@ describe("payment infrastructure catalog", () => {
 			);
 			expect(websocket).toMatchObject({ enabled: false, priority: 200 });
 		}
+	});
+
+	it("registers Alipay as an opt-in CNY fiat rail", () => {
+		expect(initialFiatRails).toContainEqual(
+			expect.objectContaining({ code: "alipay" }),
+		);
+		expect(
+			initialPaymentRails.find((rail) => rail.code === "alipay"),
+		).toMatchObject({
+			kind: "fiat",
+			adapter: "alipay",
+			metadata: { currency: "CNY" },
+		});
+		expect(
+			initialPaymentAssets.find((asset) => asset.id === "alipay-cny"),
+		).toMatchObject({
+			code: "CNY",
+			railCode: "alipay",
+			kind: "fiat",
+			decimals: 2,
+		});
+		expect(
+			initialPaymentConnections.find(
+				(connection) => connection.railCode === "alipay",
+			),
+		).toMatchObject({
+			enabled: true,
+			endpoint: "https://openapi.alipay.com",
+		});
 	});
 });

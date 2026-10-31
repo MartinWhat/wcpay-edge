@@ -7,14 +7,17 @@ import {
 	createPaymentConnectionInput,
 	paymentConnectionIdInput,
 	updateChainPaymentConnectionInput,
+	updateFiatPaymentConnectionInput,
 	updateProviderPaymentConnectionInput,
 } from "#/features/payment-settings/schema";
 import { adminContext } from "#/features/payment-settings/server/admin-context";
 import { loadPaymentConnectionApiKey } from "#/features/payment-settings/server/connection-credentials";
 import { testPaymentConnection } from "#/features/payment-settings/server/connection-health";
+import { AlipayProvider } from "#/integrations/payment-rails/alipay";
+import { encryptSecret } from "#/lib/secrets";
 import { requestId } from "#/server/http";
 
-const railKindSchema = z.enum(["chain", "exchange", "wallet"]);
+const railKindSchema = z.enum(["chain", "exchange", "wallet", "fiat"]);
 type RailKind = z.infer<typeof railKindSchema>;
 const evmRailCodes = new Set(["ethereum", "base", "bsc", "polygon"]);
 
@@ -38,6 +41,7 @@ type PaymentIngressRow = {
 	log_block_range: number | null;
 	max_scan_transactions: number | null;
 	has_api_key: number;
+	has_fiat_credentials: number;
 	external_source_id: string | null;
 	mode: "shadow" | "active" | null;
 };
@@ -62,7 +66,9 @@ export const getPaymentIngressesPageFn = createServerFn({
 				 pc.timeout_ms, pc.block_lookback, pc.log_block_range, pc.max_scan_transactions,
 				 pc.external_source_id, pc.mode,
 				 CASE WHEN credential.payment_ingress_id IS NOT NULL
-				   OR (pc.api_key IS NOT NULL AND pc.api_key != '') THEN 1 ELSE 0 END AS has_api_key
+				   OR (pc.api_key IS NOT NULL AND pc.api_key != '') THEN 1 ELSE 0 END AS has_api_key,
+				 CASE WHEN pr.kind = 'fiat' AND credential.payment_ingress_id IS NOT NULL
+				   THEN 1 ELSE 0 END AS has_fiat_credentials
 				 FROM payment_ingresses pc
 				 LEFT JOIN payment_ingress_credentials credential ON credential.payment_ingress_id = pc.id
 				 JOIN payment_rails pr ON pr.code = COALESCE(pc.rail_code, pc.network)
@@ -102,7 +108,7 @@ export const updateProviderConnectionFn = createServerFn({ method: "POST" })
 			.first<{
 				rail_code: string;
 				endpoint: string | null;
-				kind: "chain" | "exchange" | "wallet";
+				kind: "chain" | "exchange" | "wallet" | "fiat";
 			}>();
 		if (!connection || connection.kind !== data.kind)
 			throw paymentSettingsError("payment_connection_not_found");
@@ -158,6 +164,82 @@ export const updateProviderConnectionFn = createServerFn({ method: "POST" })
 		return { id: data.id, connectivityChanged };
 	});
 
+export const updateFiatConnectionFn = createServerFn({ method: "POST" })
+	.validator((input: z.input<typeof updateFiatPaymentConnectionInput>) =>
+		updateFiatPaymentConnectionInput.parse(input),
+	)
+	.handler(async ({ data }) => {
+		const context = await adminContext(paymentSettingsPermission("update"));
+		const connection = await context.db
+			.prepare(
+				`SELECT connection.rail_code, connection.endpoint, rail.kind
+				 FROM payment_ingresses connection
+				 JOIN payment_rails rail ON rail.code = connection.rail_code
+				 WHERE connection.id = ? AND connection.type = 'provider' LIMIT 1`,
+			)
+			.bind(data.id)
+			.first<{
+				rail_code: string;
+				endpoint: string | null;
+				kind: RailKind;
+			}>();
+		if (connection?.kind !== "fiat" || connection.rail_code !== "alipay")
+			throw paymentSettingsError("payment_connection_not_found");
+		const provider = await AlipayProvider.create({
+			...data.credentials,
+			endpoint: connection.endpoint ?? "https://openapi.alipay.com",
+		});
+		const encrypted = await encryptSecret(
+			JSON.stringify(provider.config),
+			context.runtime.integrationConfigSecret,
+		);
+		const now = Date.now();
+		await context.db.batch([
+			context.db
+				.prepare(
+					`UPDATE payment_ingresses SET name = ?, priority = ?, enabled = ?,
+					 health_status = 'unknown', last_checked_at = NULL,
+					 last_latency_ms = NULL, last_error_code = NULL, updated_at = ?
+					 WHERE id = ?`,
+				)
+				.bind(data.name, data.priority, data.enabled, now, data.id),
+			context.db
+				.prepare(
+					`INSERT INTO payment_ingress_credentials
+					 (payment_ingress_id, config_encrypted, created_at, updated_at)
+					 VALUES (?, ?, ?, ?)
+					 ON CONFLICT(payment_ingress_id) DO UPDATE SET
+					 config_encrypted = excluded.config_encrypted,
+					 updated_at = excluded.updated_at`,
+				)
+				.bind(data.id, encrypted, now, now),
+			context.db
+				.prepare(
+					`INSERT INTO audit_logs
+					 (id, actor_user_id, action, target_type, target_id, request_id,
+					  ip_address, after, created_at)
+					 VALUES (?, ?, 'payment_connection.updated', 'payment_connection',
+					  ?, ?, ?, ?, ?)`,
+				)
+				.bind(
+					crypto.randomUUID(),
+					context.user.id,
+					data.id,
+					requestId(context.request),
+					context.request.headers.get("cf-connecting-ip"),
+					JSON.stringify({
+						railCode: "alipay",
+						name: data.name,
+						priority: data.priority,
+						enabled: data.enabled,
+						hasCredentials: true,
+					}),
+					now,
+				),
+		]);
+		return { id: data.id };
+	});
+
 export const updateChainConnectionFn = createServerFn({ method: "POST" })
 	.validator((input: z.input<typeof updateChainPaymentConnectionInput>) =>
 		updateChainPaymentConnectionInput.parse(input),
@@ -198,9 +280,9 @@ export const updateChainConnectionFn = createServerFn({ method: "POST" })
 				block_lookback: number | null;
 				log_block_range: number | null;
 				max_scan_transactions: number | null;
-				kind: "chain" | "exchange" | "wallet";
+				kind: "chain" | "exchange" | "wallet" | "fiat";
 			}>();
-		if (!current || current.kind !== "chain")
+		if (current?.kind !== "chain")
 			throw paymentSettingsError("payment_connection_not_found");
 		if (
 			data.transport === "websocket" &&
@@ -310,7 +392,7 @@ export const createPaymentConnectionFn = createServerFn({ method: "POST" })
 		const rail = await context.db
 			.prepare("SELECT kind FROM payment_rails WHERE code = ? LIMIT 1")
 			.bind(data.railCode)
-			.first<{ kind: "chain" | "exchange" | "wallet" }>();
+			.first<{ kind: "chain" | "exchange" | "wallet" | "fiat" }>();
 		if (!rail) throw paymentSettingsError("payment_rail_not_found");
 		if (rail.kind !== "chain")
 			throw paymentSettingsError("payment_rail_connection_managed");
@@ -380,8 +462,19 @@ export const setPaymentConnectionEnabledFn = createServerFn({ method: "POST" })
 			data.id,
 			data.kind,
 		);
-		if (connection.kind !== "chain")
+		if (connection.kind !== "chain" && connection.kind !== "fiat")
 			return { ...data, enabled: true, changed: false };
+		if (
+			connection.kind === "fiat" &&
+			data.enabled &&
+			!(await context.db
+				.prepare(
+					"SELECT 1 AS value FROM payment_ingress_credentials WHERE payment_ingress_id = ? LIMIT 1",
+				)
+				.bind(data.id)
+				.first<{ value: number }>())
+		)
+			throw paymentSettingsError("payment_connection_not_configured");
 		if (data.enabled) {
 			const health = await testPaymentConnection(context.db, data.id);
 			if (!health.healthy)

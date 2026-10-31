@@ -8,9 +8,10 @@ import { createReceivingMethodAdapters } from "#/features/payment-settings/serve
 type ReceivingMethodReadinessRow = {
 	id: string;
 	enabled: number;
-	asset_kind: "native" | "token" | "external";
+	asset_kind: "native" | "token" | "external" | "fiat";
 	contract_address: string | null;
 	rail_code: string;
+	rail_kind: "chain" | "exchange" | "wallet" | "fiat";
 	connection_enabled: number;
 	connection_healthy: number;
 	payment_method_id: string;
@@ -32,12 +33,12 @@ export async function checkReceivingMethodReadiness(
 			`SELECT rm.id, rm.enabled, link.payment_asset_id AS payment_method_id,
 			 rm.target_value,
 			 pa.kind AS asset_kind, pa.contract_address,
-			 pr.code AS rail_code,
+			 pr.code AS rail_code, pr.kind AS rail_kind,
 			 EXISTS (SELECT 1 FROM payment_ingresses pc WHERE pc.rail_code = pa.rail_code
 			  AND pc.enabled = 1) AS connection_enabled,
 			 EXISTS (SELECT 1 FROM payment_ingresses pc WHERE pc.rail_code = pa.rail_code
 			  AND pc.enabled = 1
-			  AND (pr.kind IN ('exchange', 'wallet') OR pc.health_status = 'healthy')) AS connection_healthy
+			  AND (pr.kind != 'chain' OR pc.health_status = 'healthy')) AS connection_healthy
 			 FROM receiving_methods rm
 			 JOIN receiving_method_assets link ON link.receiving_method_id = rm.id
 			 JOIN payment_assets pa ON pa.id = link.payment_asset_id
@@ -78,6 +79,29 @@ export async function checkReceivingMethodReadiness(
 		return result(methodId, checkedAt, "missing_target", [
 			reason("MISSING_TARGET", "Configure the receiving target."),
 		]);
+	if (method.rail_kind === "fiat") {
+		const connection = await db
+			.prepare(
+				`SELECT credential.payment_ingress_id
+				 FROM payment_ingresses connection
+				 JOIN receiving_methods method ON method.rail_code = connection.rail_code
+				 LEFT JOIN payment_ingress_credentials credential
+				   ON credential.payment_ingress_id = connection.id
+				 WHERE method.id = ? AND connection.enabled = 1
+				 AND credential.payment_ingress_id IS NOT NULL
+				 LIMIT 1`,
+			)
+			.bind(methodId)
+			.first<{ payment_ingress_id: string }>();
+		if (!connection)
+			return result(methodId, checkedAt, "missing_target", [
+				reason(
+					"INVALID_TARGET",
+					"The fiat provider credentials are not configured.",
+				),
+			]);
+		return result(methodId, checkedAt, "ready", []);
+	}
 	let adapters: Awaited<ReturnType<typeof createReceivingMethodAdapters>>;
 	try {
 		adapters = await createReceivingMethodAdapters(db, method.id);

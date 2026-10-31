@@ -54,7 +54,7 @@ export const listReceivingMethodsFn = createServerFn({ method: "GET" }).handler(
 				rail_code: string;
 				target_type: "address" | "account" | "provider";
 				target_value: string;
-				rail_kind: "chain" | "exchange" | "wallet";
+				rail_kind: "chain" | "exchange" | "wallet" | "fiat";
 				rail_name: string;
 			}>();
 		const grouped = new Map<
@@ -135,7 +135,7 @@ export const listReceivingMethodOptionsFn = createServerFn({
 			rail_name: string;
 			asset_code: string;
 			decimals: number;
-			rail_kind: "chain" | "exchange" | "wallet";
+			rail_kind: "chain" | "exchange" | "wallet" | "fiat";
 		}>();
 	return { methods: methods.results };
 });
@@ -181,7 +181,7 @@ export const createReceivingMethodFn = createServerFn({ method: "POST" })
 				id: string;
 				asset_code: string;
 				code: string;
-				kind: "chain" | "exchange" | "wallet";
+				kind: "chain" | "exchange" | "wallet" | "fiat";
 				decimals: number;
 			}>();
 		if (methods.results.length !== data.paymentMethodIds.length)
@@ -373,7 +373,7 @@ export const deleteReceivingMethodFn = createServerFn({ method: "POST" })
 	});
 
 function receivingTarget(
-	kind: "chain" | "exchange" | "wallet",
+	kind: "chain" | "exchange" | "wallet" | "fiat",
 	railCode: string,
 	configuration: Record<string, string>,
 ) {

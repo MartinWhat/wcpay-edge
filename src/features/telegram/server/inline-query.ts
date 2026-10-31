@@ -52,7 +52,7 @@ export async function inlinePaymentOptions(
 			 JOIN payment_rails pr ON pr.code = a.rail_code
 			 WHERE rm.enabled = 1 AND rm.target_value != ''
 			 AND EXISTS (SELECT 1 FROM payment_ingresses pc WHERE pc.rail_code = a.rail_code
-			  AND pc.enabled = 1 AND (pr.kind IN ('exchange', 'wallet')
+			  AND pc.enabled = 1 AND (pr.kind IN ('exchange', 'wallet', 'fiat')
 			   OR pc.health_status IN ('healthy', 'degraded')))
 			 ORDER BY rm.sort_order, rm.name LIMIT 50`,
 		)

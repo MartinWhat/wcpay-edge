@@ -42,7 +42,7 @@ export async function queryPublicPaymentMethods(db: D1Database) {
 			   WHERE connection.rail_code = pa.rail_code AND connection.enabled = 1
 			   AND EXISTS (SELECT 1 FROM payment_rails availability_rail
 			    WHERE availability_rail.code = connection.rail_code
-			     AND (availability_rail.kind IN ('exchange', 'wallet')
+			     AND (availability_rail.kind IN ('exchange', 'wallet', 'fiat')
 			      OR connection.health_status = 'healthy'))) THEN 1 ELSE 0 END) AS available
 		 FROM payment_assets pa
 		 LEFT JOIN receiving_method_assets link ON link.payment_asset_id = pa.id
@@ -85,7 +85,7 @@ export async function queryAvailablePaymentAssets(db: D1Database) {
 			 AND rm.target_value != ''
 			 AND EXISTS (SELECT 1 FROM payment_ingresses pc WHERE pc.rail_code = a.rail_code
 			  AND pc.enabled = 1
-			  AND (pr.kind IN ('exchange', 'wallet') OR pc.health_status = 'healthy'))
+			  AND (pr.kind IN ('exchange', 'wallet', 'fiat') OR pc.health_status = 'healthy'))
 		 ORDER BY network, a.code`)
 		.all<AvailablePaymentAsset>();
 	return result.results;

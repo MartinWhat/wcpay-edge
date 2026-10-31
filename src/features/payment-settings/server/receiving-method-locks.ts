@@ -134,7 +134,7 @@ export async function allocateReceivingMethodAndSnapshot(
 			 JOIN payment_ingresses connection ON connection.rail_code = asset.rail_code
 			 WHERE rm.id = ? AND asset.id = ? AND rm.enabled = 1 AND rm.target_value != ''
 				 AND connection.enabled = 1
-				 AND (rail.kind IN ('exchange', 'wallet') OR connection.health_status = 'healthy')
+				 AND (rail.kind IN ('exchange', 'wallet', 'fiat') OR connection.health_status = 'healthy')
 			 ORDER BY connection.priority, connection.id LIMIT 1`,
 		)
 		.bind(input.receivingMethodId, input.paymentMethodId)

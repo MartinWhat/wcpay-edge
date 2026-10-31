@@ -6,6 +6,7 @@ export type PaymentSettingsErrorCode =
 	| "payment_rail_not_found"
 	| "payment_rail_connection_managed"
 	| "payment_connection_unhealthy"
+	| "payment_connection_not_configured"
 	| "payment_method_not_found"
 	| "receiving_method_mixed_rail"
 	| "receiving_method_not_found"
@@ -38,6 +39,10 @@ const errorDefinitions: Record<
 	payment_connection_unhealthy: {
 		status: 409,
 		message: "Payment connection health check failed",
+	},
+	payment_connection_not_configured: {
+		status: 409,
+		message: "Payment connection credentials are not configured",
 	},
 	payment_method_not_found: {
 		status: 404,

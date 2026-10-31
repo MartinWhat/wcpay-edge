@@ -29,7 +29,7 @@ export const listPaymentMethodsFn = createServerFn({
 			contract_address: string | null;
 			rail_code: string;
 			rail_name: string;
-			rail_kind: "chain" | "exchange" | "wallet";
+			rail_kind: "chain" | "exchange" | "wallet" | "fiat";
 		}>();
 	return rows.results;
 });
