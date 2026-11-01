@@ -195,6 +195,15 @@ export const createReceivingMethodFn = createServerFn({ method: "POST" })
 		)
 			throw paymentSettingsError("receiving_method_mixed_rail");
 		const target = receivingTarget(first.kind, first.code, data.configuration);
+		if (
+			await context.db
+				.prepare(
+					"SELECT 1 AS value FROM receiving_methods WHERE rail_code = ? AND normalized_target_value = ? LIMIT 1",
+				)
+				.bind(first.code, target.value)
+				.first<{ value: number }>()
+		)
+			throw paymentSettingsError("receiving_method_target_conflict");
 		let encryptedConfiguration: string | null = null;
 		if (target.credentials) {
 			encryptedConfiguration = await encryptSecret(

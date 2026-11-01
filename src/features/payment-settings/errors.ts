@@ -9,6 +9,7 @@ export type PaymentSettingsErrorCode =
 	| "payment_connection_not_configured"
 	| "payment_method_not_found"
 	| "receiving_method_mixed_rail"
+	| "receiving_method_target_conflict"
 	| "receiving_method_not_found"
 	| "receiving_method_invalid_limits"
 	| "receiving_method_configuration_required"
@@ -51,6 +52,10 @@ const errorDefinitions: Record<
 	receiving_method_mixed_rail: {
 		status: 422,
 		message: "Receiving method assets must use the same payment rail",
+	},
+	receiving_method_target_conflict: {
+		status: 409,
+		message: "A receiving method already uses this target",
 	},
 	receiving_method_not_found: {
 		status: 404,

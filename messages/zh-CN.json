@@ -883,6 +883,7 @@
 	"payment_settings_error_connection_configuration": "请先补全连接配置再进行测试",
 	"payment_settings_error_method_not_found": "一个或多个所选支付方式已不存在",
 	"payment_settings_error_mixed_rail": "所选币种必须属于同一网络或服务商",
+	"payment_settings_error_receiving_method_target_conflict": "该收款目标已存在，请编辑原有收款方式",
 	"payment_settings_error_receiving_method_not_found": "收款方式不存在",
 	"payment_settings_error_invalid_limits": "最小金额不能大于最大金额",
 	"payment_settings_error_receiving_method_not_ready": "请先补全并验证收款方式再启用",

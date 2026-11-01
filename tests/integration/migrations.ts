@@ -10,10 +10,7 @@ export async function applyMigrations(database: D1Database, through?: number) {
 		.sort();
 	for (const file of files) {
 		const migration = await readFile(new URL(file, directory), "utf8");
-		for (const statement of migration
-			.split("--> statement-breakpoint")
-			.map((value) => value.trim())
-			.filter(Boolean))
+		for (const statement of migrationStatements(migration))
 			await database.prepare(statement).run();
 	}
 	// Fixture convenience: a receiving target links every payment method on its rail.
@@ -27,4 +24,11 @@ export async function applyMigrations(database: D1Database, through?: number) {
 			WHERE asset.rail_code = NEW.rail_code;
 		END`)
 		.run();
+}
+
+export function migrationStatements(migration: string) {
+	return migration
+		.split("--> statement-breakpoint")
+		.map((value) => value.trim())
+		.filter(Boolean);
 }

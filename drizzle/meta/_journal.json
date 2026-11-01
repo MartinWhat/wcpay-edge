@@ -85,6 +85,13 @@
       "when": 1793503717202,
       "tag": "0011_low_phil_sheldon",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1793520000000,
+      "tag": "0012_repair_alipay_connection_migration",
+      "breakpoints": true
     }
   ]
 }

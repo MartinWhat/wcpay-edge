@@ -885,6 +885,7 @@
   "payment_settings_error_connection_configuration": "Завершите настройку подключения перед проверкой",
   "payment_settings_error_method_not_found": "Один или несколько выбранных способов оплаты больше не существуют",
   "payment_settings_error_mixed_rail": "Выбранные валюты должны использовать одну сеть или один сервис",
+  "payment_settings_error_receiving_method_target_conflict": "Этот получатель уже настроен. Измените существующий способ получения.",
   "payment_settings_error_receiving_method_not_found": "Способ получения не найден",
   "payment_settings_error_invalid_limits": "Минимальная сумма не может превышать максимальную",
   "payment_settings_error_receiving_method_not_ready": "Завершите настройку и проверку способа получения перед включением",

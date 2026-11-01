@@ -14,6 +14,14 @@
 
 引导流程会复刻仓库并配置 Workers Builds，使用按钮时源仓库必须公开。Build command 配置为 `bun run build`，Deploy command 使用自动检测的 `bun run deploy`。构建命令会精确复用同名 D1、KV、R2 和 Queue，只创建缺失资源；应用 D1 基线后，生成包含已解析 D1/KV ID 的 Vite 产物。部署生命周期在 Workers Builds 中不会重复构建，只上传该产物；整个过程不改写可移植的源码 `wrangler.jsonc`。部署完成后访问 Worker 地址的 `/install`。
 
+推送到 Git 仓库只有在 Cloudflare Workers Builds 已连接该仓库、分支和
+`bun run build` 命令且存在自动部署触发时才会发布。该构建会执行待应用的远端
+D1 迁移，因此正常由 Workers Builds 发布的提交不需要再单独执行
+`bun run db:migrate:remote`。GitHub Actions 的 CI 和 Release 工作流只验证代码
+并创建发布，不会部署 Worker 或迁移 D1。手动执行 `wrangler deploy` 也会经过
+`predeploy` 并迁移 D1；若使用其他平台、跳过 Build 步骤或只上传已有产物，则
+必须显式执行迁移并核对部署日志。
+
 ### Wrangler CLI
 
 完成 Wrangler 登录后执行 package 部署命令。`predeploy` Hook 会精确复用同名 D1、KV、R2 和 Queue，只创建缺失资源；随后应用 D1 基线，并在发布前生成已解析绑定的 Vite 产物：

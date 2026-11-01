@@ -22,6 +22,16 @@ D1/KV IDs. The deploy lifecycle skips rebuilding inside Workers Builds and uploa
 that generated artifact. The portable source `wrangler.jsonc` is never rewritten.
 When deployment finishes, open `/install` on the Worker URL.
 
+A Git push deploys only when Cloudflare Workers Builds is connected to that
+repository and branch, uses `bun run build`, and has an automatic deployment
+trigger. That build applies pending remote D1 migrations, so a normal Workers
+Builds deployment does not need a separate `bun run db:migrate:remote`. The
+GitHub Actions CI and Release workflows validate code and create releases; they
+do not deploy the Worker or migrate D1. A manual `wrangler deploy` also runs
+`predeploy` and migrates D1. Other platforms, builds that skip this step, or
+uploads of an existing artifact require an explicit migration and deployment
+log verification.
+
 ### Wrangler CLI
 
 Authenticate Wrangler and run the package deployment command. Its `predeploy`
