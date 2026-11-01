@@ -25,7 +25,7 @@ describe("authoritative operational settings", () => {
 		await database
 			.prepare(
 				`DELETE FROM system_settings WHERE key IN (
-				 'orders.default_expiry_ms', 'orders.max_expiry_ms',
+				 'orders.development_tools_enabled', 'orders.default_expiry_ms', 'orders.max_expiry_ms',
 				 'payments.late_payment_policy', 'webhooks.max_attempts',
 					 'webhooks.timeout_ms', 'payments.scan_batch_size',
 					 'payments.scan_interval_ms',
@@ -59,6 +59,16 @@ describe("authoritative operational settings", () => {
 		expect(counters.d1StatementAll).toBe(2);
 		expect(counters.kvGet).toBe(0);
 		expect(counters.kvPut).toBe(0);
+	});
+
+	it("keeps production test-order tools disabled until enabled explicitly", async () => {
+		await expect(loadOperationalSettings(database)).resolves.toMatchObject({
+			developmentToolsEnabled: false,
+		});
+		await putSetting("orders.development_tools_enabled", true);
+		await expect(loadOperationalSettings(database)).resolves.toMatchObject({
+			developmentToolsEnabled: true,
+		});
 	});
 
 	it("keeps valid values and falls back per field for malformed or unsafe rows", async () => {

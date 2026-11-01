@@ -26,6 +26,7 @@ export const paymentOptionInput = z.object({
 type OrderForSelection = {
 	id: string;
 	external_order_id: string;
+	is_test: number;
 	status: string;
 	amount: string;
 	currency: string;
@@ -55,6 +56,12 @@ export async function listCheckoutPaymentOptions(
 	const id = orderIdPathSchema.parse(orderId);
 	const order = await readOrder(db, id);
 	if (!order) return null;
+	if (order.is_test === 1)
+		return {
+			selectable: false,
+			options: [],
+			unavailableReason: "test_order" as const,
+		};
 	if (order.receiving_method_id)
 		return {
 			selectable: false,
@@ -175,6 +182,8 @@ export async function selectCheckoutPaymentOption(
 	const data = paymentOptionInput.parse(input);
 	const order = await readOrder(db, data.orderId);
 	if (!order) throw new PaymentOptionError("order_not_found", 404);
+	if (order.is_test === 1)
+		throw new PaymentOptionError("order_unavailable", 409);
 	if (order.receiving_method_id) {
 		if (order.receiving_method_id === data.receivingMethodId)
 			return selectedResult(
@@ -364,7 +373,7 @@ function selectedResult(
 async function readOrder(db: ReadDatabase, id: string) {
 	const row = await db
 		.prepare(
-			`SELECT o.id, o.external_order_id, o.status, o.amount_minor,
+			`SELECT o.id, o.external_order_id, o.is_test, o.status, o.amount_minor,
 			 o.currency, o.currency_decimals, o.description, o.return_url, o.expires_at,
 			 o.received_amount_units, o.payment_asset_id,
 			 o.provider_order_id, o.payment_url, o.version,

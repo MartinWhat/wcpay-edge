@@ -30,7 +30,11 @@ export function SelectPaymentOptionPanel({
 	onBack?: () => void;
 	onConfirm: (option: Option) => void;
 	options: Option[];
-	unavailableReason?: "rate_unavailable" | "payment_method_unavailable" | null;
+	unavailableReason?:
+		| "rate_unavailable"
+		| "payment_method_unavailable"
+		| "test_order"
+		| null;
 }) {
 	// Selections are kept as the payer's choices; the effective values fall
 	// back to the first available entry whenever a choice is absent or no
@@ -99,9 +103,11 @@ export function SelectPaymentOptionPanel({
 				<div className="rounded-xl border bg-muted/30 px-4 py-5 text-center">
 					<p className="font-medium">{m.checkout_no_payment_options()}</p>
 					<p className="mt-1 text-muted-foreground text-sm">
-						{unavailableReason === "rate_unavailable"
-							? m.checkout_payment_rate_unavailable_hint()
-							: m.checkout_no_payment_options_hint()}
+						{unavailableReason === "test_order"
+							? m.orders_test_payment_disabled()
+							: unavailableReason === "rate_unavailable"
+								? m.checkout_payment_rate_unavailable_hint()
+								: m.checkout_no_payment_options_hint()}
 					</p>
 				</div>
 			) : (

@@ -41,6 +41,33 @@ describe("payment review flow", () => {
 
 	afterAll(async () => miniflare.dispose());
 
+	it("rejects payment reviews for test orders before storing evidence", async () => {
+		const testOrderId = "26071306394512345682";
+		const now = Date.now();
+		await db
+			.prepare(
+				`INSERT INTO orders
+				 (id, external_order_id, status, amount_minor, currency, currency_decimals,
+				  payment_asset_id, received_amount_units, is_test, expires_at, version, created_at, updated_at)
+				 VALUES (?, 'test-review-order', 'pending', '1000', 'USD', 2, NULL, '0', 1, ?, 0, ?, ?)`,
+			)
+			.bind(testOrderId, now + 900_000, now, now)
+			.run();
+		put.mockClear();
+
+		await expect(
+			createPaymentReview(
+				{
+					orderId: testOrderId,
+					description: "A test order cannot accept payment review evidence.",
+					evidence: pngEvidence(),
+				},
+				{ db, bucket },
+			),
+		).rejects.toMatchObject({ code: "order_unavailable", status: 409 });
+		expect(put).not.toHaveBeenCalled();
+	});
+
 	it("rejects content whose bytes do not match an allowed image", async () => {
 		await expect(
 			createPaymentReview(

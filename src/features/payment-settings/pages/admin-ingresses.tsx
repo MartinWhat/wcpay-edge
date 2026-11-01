@@ -420,12 +420,14 @@ export function PaymentIngressesPage() {
 										{
 											name: "privateKey",
 											label: m.receiving_alipay_private_key(),
+											description: m.receiving_alipay_private_key_help(),
 											required: true,
 											fieldProps: { type: "password" },
 										},
 										{
 											name: "alipayPublicKey",
 											label: m.receiving_alipay_public_key(),
+											description: m.receiving_alipay_public_key_help(),
 											required: true,
 											fieldProps: { type: "password" },
 										},
@@ -908,12 +910,14 @@ function FiatProviderForm({
 				{
 					name: "privateKey",
 					label: m.receiving_alipay_private_key(),
+					description: m.receiving_alipay_private_key_help(),
 					required: true,
 					fieldProps: { type: "password" },
 				},
 				{
 					name: "alipayPublicKey",
 					label: m.receiving_alipay_public_key(),
+					description: m.receiving_alipay_public_key_help(),
 					required: true,
 					fieldProps: { type: "password" },
 				},

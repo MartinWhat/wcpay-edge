@@ -31,6 +31,7 @@ import { unitsToDecimal } from "#/lib/money";
 import { minorToDecimal } from "#/lib/units";
 import { getCloudflareEnv } from "#/server/db.server";
 import { requestId } from "#/server/http";
+import { loadOperationalSettings } from "#/server/operational-settings";
 import { readDatabase } from "#/server/read-replica";
 
 const orderIdSchema = z.object({ orderId: orderIdPathSchema });
@@ -62,6 +63,8 @@ const adminOrdersListSchema = z.object({
 type AdminOrderRow = {
 	id: string;
 	external_order_id: string;
+	api_key_id: string | null;
+	is_test: number;
 	status: string;
 	amount_minor: string;
 	currency: string;
@@ -86,12 +89,6 @@ type AdminOrderRow = {
 export const createDevelopmentOrderFn = createServerFn({ method: "POST" })
 	.validator((input) => developmentOrderSchema.parse(input))
 	.handler(async ({ data }) => {
-		if (!import.meta.env.DEV)
-			throw new DomainError(
-				"order_development_only",
-				404,
-				"Development order tools are unavailable",
-			);
 		const request = getRequest();
 		const user = await requireAdmin(
 			request,
@@ -99,6 +96,15 @@ export const createDevelopmentOrderFn = createServerFn({ method: "POST" })
 		);
 		const db = getCloudflareEnv(request).DB;
 		if (!db) throw new Error("D1 binding DB is unavailable");
+		if (
+			!import.meta.env.DEV &&
+			!(await loadOperationalSettings(db)).developmentToolsEnabled
+		)
+			throw new DomainError(
+				"order_development_only",
+				404,
+				"Development order tools are unavailable",
+			);
 		const order = await createOrder(
 			db,
 			{
@@ -108,7 +114,7 @@ export const createDevelopmentOrderFn = createServerFn({ method: "POST" })
 				description: data.description || undefined,
 			},
 			request.url,
-			{},
+			{ isTest: true },
 		);
 		await db
 			.prepare(
@@ -134,12 +140,6 @@ export const simulateDevelopmentOrderStatusFn = createServerFn({
 })
 	.validator((input) => developmentStatusSchema.parse(input))
 	.handler(async ({ data }) => {
-		if (!import.meta.env.DEV)
-			throw new DomainError(
-				"order_development_only",
-				404,
-				"Development order tools are unavailable",
-			);
 		const request = getRequest();
 		const user = await requireAdmin(
 			request,
@@ -147,14 +147,38 @@ export const simulateDevelopmentOrderStatusFn = createServerFn({
 		);
 		const db = getCloudflareEnv(request).DB;
 		if (!db) throw new Error("D1 binding DB is unavailable");
+		if (
+			!import.meta.env.DEV &&
+			!(await loadOperationalSettings(db)).developmentToolsEnabled
+		)
+			throw new DomainError(
+				"order_development_only",
+				404,
+				"Development order tools are unavailable",
+			);
 		const order = await db
-			.prepare(`SELECT o.status, ops.expected_amount_units FROM orders o
+			.prepare(`SELECT o.status, o.is_test, o.api_key_id,
+				ops.expected_amount_units FROM orders o
 				LEFT JOIN order_payment_snapshots ops ON ops.order_id = o.id
 				WHERE o.id = ? LIMIT 1`)
 			.bind(data.orderId)
-			.first<{ status: OrderStatus; expected_amount_units: string | null }>();
+			.first<{
+				status: OrderStatus;
+				expected_amount_units: string | null;
+				is_test: number;
+				api_key_id: string | null;
+			}>();
 		if (!order)
 			throw new DomainError("order_not_found", 404, "Order not found");
+		if (
+			!import.meta.env.DEV &&
+			(order.is_test !== 1 || order.api_key_id !== null)
+		)
+			throw new DomainError(
+				"order_development_only",
+				404,
+				"Development status simulation is unavailable for this order",
+			);
 		assertDevelopmentTransition(order.status, data.status);
 		const expected = BigInt(order.expected_amount_units ?? "0");
 		const received = developmentReceivedAmount(data.status, expected);
@@ -240,7 +264,14 @@ function developmentReceivedAmount(
 export const listAdminOrdersFn = createServerFn({ method: "GET" })
 	.validator((input) => adminOrdersListSchema.parse(input))
 	.handler(async ({ data }) => {
-		const db = await adminDb(systemPermission("orders", "read"));
+		const request = getRequest();
+		await requireAdmin(request, systemPermission("orders", "read"));
+		const primaryDb = getCloudflareEnv(request).DB;
+		if (!primaryDb) throw new Error("D1 binding DB is unavailable");
+		const db = readDatabase(request, primaryDb);
+		const developmentToolsEnabled =
+			import.meta.env.DEV ||
+			(await loadOperationalSettings(primaryDb)).developmentToolsEnabled;
 		const search = data.search ? `%${data.search}%` : null;
 		const countClauses = [
 			...(search ? ["(o.external_order_id LIKE ? OR o.id LIKE ?)"] : []),
@@ -275,7 +306,8 @@ export const listAdminOrdersFn = createServerFn({ method: "GET" })
 				.bind(...countBindings),
 			db
 				.prepare(
-					`SELECT o.id, o.external_order_id, o.status, o.amount_minor, o.currency,
+					`SELECT o.id, o.external_order_id, o.api_key_id, o.is_test,
+		 o.status, o.amount_minor, o.currency,
 		 o.currency_decimals, o.received_amount_units, o.expires_at, o.paid_at,
 			 o.created_at, o.notify_url, COALESCE(ops.asset_code, a.code, '') AS asset_code,
 			 ops.expected_amount_units,
@@ -302,6 +334,7 @@ export const listAdminOrdersFn = createServerFn({ method: "GET" })
 		const items = rows.results.map((row) => ({
 			id: row.id,
 			externalOrderId: row.external_order_id,
+			isTest: row.is_test === 1 && row.api_key_id === null,
 			status: row.status,
 			amount: minorToDecimal(row.amount_minor, row.currency_decimals),
 			currency: row.currency,
@@ -327,6 +360,7 @@ export const listAdminOrdersFn = createServerFn({ method: "GET" })
 		const last = rows.results.at(-1);
 		return {
 			items,
+			developmentToolsEnabled,
 			total: count?.total ?? 0,
 			pageIndex: data.pageIndex,
 			pageSize: data.pageSize,
@@ -354,7 +388,7 @@ export const simulateOrderPaymentFn = createServerFn({ method: "POST" })
 				"Webhook queue is unavailable",
 			);
 		const order = await env.DB.prepare(
-			`SELECT ops.expected_amount_units, ops.decimals, ops.asset_code AS code,
+			`SELECT o.is_test, ops.expected_amount_units, ops.decimals, ops.asset_code AS code,
 			 ops.rail_code AS network, ops.target_value AS address,
 			 ops.adapter, ops.required_confirmations
 			 FROM orders o JOIN order_payment_snapshots ops ON ops.order_id = o.id
@@ -362,6 +396,7 @@ export const simulateOrderPaymentFn = createServerFn({ method: "POST" })
 		)
 			.bind(data.orderId)
 			.first<{
+				is_test: number;
 				expected_amount_units: string;
 				decimals: number;
 				code: string;
@@ -372,6 +407,12 @@ export const simulateOrderPaymentFn = createServerFn({ method: "POST" })
 			}>();
 		if (!order)
 			throw new DomainError("order_not_found", 404, "Order not found");
+		if (order.is_test === 1)
+			throw new DomainError(
+				"order_development_only",
+				409,
+				"Test order payment must use status simulation",
+			);
 		if (order.adapter !== "mock") {
 			throw new DomainError(
 				"order_mock_only",
@@ -512,12 +553,4 @@ async function adminActionContext(permission: SystemPermission) {
 	const env = getCloudflareEnv(request);
 	if (!env.DB) throw new Error("D1 binding DB is unavailable");
 	return { request, user, env: { ...env, DB: env.DB } };
-}
-
-async function adminDb(permission: SystemPermission) {
-	const request = getRequest();
-	await requireAdmin(request, permission);
-	const db = getCloudflareEnv(request).DB;
-	if (!db) throw new Error("D1 binding DB is unavailable");
-	return readDatabase(request, db);
 }

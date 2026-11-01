@@ -4,6 +4,7 @@ import {
 	dashboardSnapshotTtlMs,
 	loadAdminDashboard,
 } from "#/features/dashboard/server/admin";
+import { queryAdminDashboard } from "#/features/dashboard/server/query";
 import {
 	createDatastoreCounters,
 	instrumentD1,
@@ -48,5 +49,36 @@ describe("admin dashboard snapshot", () => {
 		);
 		expect(refreshed).not.toBe(first);
 		expect(counters.d1Batch).toBe(2);
+	});
+
+	it("excludes test orders from dashboard counts, trends, and recent orders", async () => {
+		const now = Date.now();
+		await db.batch([
+			db
+				.prepare(
+					`INSERT INTO orders
+					 (id, external_order_id, status, amount_minor, currency, currency_decimals,
+					  received_amount_units, is_test, expires_at, version, created_at, updated_at)
+					 VALUES ('dashboard-real-order', 'dashboard-real-order', 'pending', '100', 'USD', 2, '0', 0, ?, 0, ?, ?)`,
+				)
+				.bind(now + 900_000, now, now),
+			db
+				.prepare(
+					`INSERT INTO orders
+					 (id, external_order_id, status, amount_minor, currency, currency_decimals,
+					  received_amount_units, is_test, expires_at, version, created_at, updated_at)
+					 VALUES ('dashboard-test-order', 'dashboard-test-order', 'paid', '100', 'USD', 2, '0', 1, ?, 0, ?, ?)`,
+				)
+				.bind(now + 900_000, now + 1, now + 1),
+		]);
+
+		const dashboard = await queryAdminDashboard(db, now + 2);
+		expect(dashboard.orders).toMatchObject({ total: 1, active: 1, paid: 0 });
+		expect(
+			dashboard.dailyOrders.reduce((total, day) => total + day.orderCount, 0),
+		).toBe(1);
+		expect(dashboard.recentOrders.map((order) => order.id)).toEqual([
+			"dashboard-real-order",
+		]);
 	});
 });

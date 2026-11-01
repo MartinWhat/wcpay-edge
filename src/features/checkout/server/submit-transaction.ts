@@ -51,7 +51,7 @@ export async function submitCheckoutTransaction(
 	const orderId = orderIdPathSchema.parse(input.orderId);
 	const transactionHash = transactionHashSchema.parse(input.transactionHash);
 	const order = await env.DB.prepare(
-		`SELECT o.status, o.expires_at, ops.target_value AS address,
+		`SELECT o.status, o.is_test, o.expires_at, ops.target_value AS address,
 		 ops.asset_id, ops.asset_code, ops.receiving_method_id
 		 FROM orders o
 		 JOIN order_payment_snapshots ops ON ops.order_id = o.id
@@ -60,13 +60,14 @@ export async function submitCheckoutTransaction(
 		.bind(orderId)
 		.first<{
 			status: string;
+			is_test: number;
 			expires_at: number;
 			address: string;
 			asset_code: string;
 			asset_id: string;
 			receiving_method_id: string;
 		}>();
-	if (!order) return { status: "unavailable" };
+	if (!order || order.is_test === 1) return { status: "unavailable" };
 	if (
 		!["pending", "confirming", "partially_paid"].includes(order.status) &&
 		!(allowLate && ["expired", "cancelled"].includes(order.status))

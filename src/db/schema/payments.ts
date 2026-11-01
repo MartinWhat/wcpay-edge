@@ -256,6 +256,7 @@ export const orders = sqliteTable(
 		externalOrderId: text("external_order_id").notNull(),
 		apiKeyId: text("api_key_id").references(() => apiKeys.id),
 		apiProtocol: text("api_protocol", { enum: ["gmpay", "epay"] }),
+		isTest: integer("is_test", { mode: "boolean" }).notNull().default(false),
 		status: text("status", {
 			enum: [
 				"pending",

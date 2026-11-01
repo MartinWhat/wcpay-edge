@@ -5,6 +5,7 @@ export const immediateReleaseModeSql =
 
 type OperationalSettings = {
 	immediateReleaseMode: boolean;
+	developmentToolsEnabled: boolean;
 	fixedExpiryMs: number;
 	defaultExpiryMs: number;
 	maxExpiryMs: number;
@@ -21,6 +22,7 @@ type OperationalSettings = {
 
 const operationalSettingsSchema = z.object({
 	immediateReleaseMode: z.boolean(),
+	developmentToolsEnabled: z.boolean(),
 	fixedExpiryMs: z.number().int().min(60_000).max(604_800_000),
 	defaultExpiryMs: z.number().int().min(60_000).max(86_400_000),
 	maxExpiryMs: z.number().int().min(300_000).max(604_800_000),
@@ -36,6 +38,7 @@ const operationalSettingsSchema = z.object({
 });
 const defaults: OperationalSettings = {
 	immediateReleaseMode: false,
+	developmentToolsEnabled: false,
 	fixedExpiryMs: 900_000,
 	defaultExpiryMs: 900_000,
 	maxExpiryMs: 86_400_000,
@@ -52,6 +55,7 @@ const defaults: OperationalSettings = {
 
 const keys = {
 	"orders.immediate_release_mode": "immediateReleaseMode",
+	"orders.development_tools_enabled": "developmentToolsEnabled",
 	"orders.fixed_expiry_ms": "fixedExpiryMs",
 	"orders.default_expiry_ms": "defaultExpiryMs",
 	"orders.max_expiry_ms": "maxExpiryMs",

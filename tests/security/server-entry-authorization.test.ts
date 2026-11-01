@@ -111,7 +111,11 @@ const permissionContracts = [
 	],
 	[
 		"payment_settings:create",
-		["createPaymentConnectionFn", "createPaymentEventSourceFn"],
+		[
+			"createAlipayConnectionFn",
+			"createPaymentConnectionFn",
+			"createPaymentEventSourceFn",
+		],
 	],
 	[
 		"payment_settings:update",

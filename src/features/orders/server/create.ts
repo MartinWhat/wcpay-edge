@@ -33,8 +33,8 @@ async function createOrderAwaitingReceivingMethod(
 			`INSERT OR IGNORE INTO orders
 				 (id, external_order_id, status, amount_minor, currency, currency_decimals,
 				  payment_asset_id, received_amount_units,
-				  description, return_url, notify_url, api_key_id, api_protocol, metadata, expires_at, version, created_at, updated_at)
-				 VALUES (?, ?, 'pending', ?, ?, ?, NULL, '0', ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
+			  description, return_url, notify_url, api_key_id, api_protocol, is_test, metadata, expires_at, version, created_at, updated_at)
+			 VALUES (?, ?, 'pending', ?, ?, ?, NULL, '0', ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
 		)
 		.bind(
 			id,
@@ -47,6 +47,7 @@ async function createOrderAwaitingReceivingMethod(
 			input.notifyUrl ?? null,
 			context.apiKeyId ?? null,
 			context.apiProtocol ?? null,
+			context.isTest ? 1 : 0,
 			input.metadata ? JSON.stringify(input.metadata) : null,
 			expiresAt,
 			now,
@@ -85,6 +86,19 @@ export async function createOrder(
 	requestUrl: string,
 	context: OrderCreationContext = {},
 ): Promise<ApiOrder> {
+	if (
+		context.isTest &&
+		(input.receivingMethodId ||
+			input.paymentAsset ||
+			input.paymentNetwork ||
+			input.returnUrl ||
+			input.notifyUrl)
+	)
+		throw new OrderServiceError(
+			"test_order_payment_not_allowed",
+			"Test orders cannot use payment methods or merchant callbacks",
+			422,
+		);
 	if (input.paymentNetwork === "alipay" && input.currency !== "CNY")
 		throw new OrderServiceError(
 			"currency_not_supported",
@@ -333,6 +347,7 @@ function resolveOrderExpiryMs(
 export interface OrderCreationContext {
 	apiKeyId?: string;
 	apiProtocol?: "gmpay" | "epay";
+	isTest?: boolean;
 }
 
 async function quotePaymentAmount(

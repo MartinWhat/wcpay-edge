@@ -71,9 +71,11 @@ export function OrdersPage() {
 	const [simulatingOrder, setSimulatingOrder] = useState<OrderRecord | null>(
 		null,
 	);
-	const development = import.meta.env.DEV;
+	const [developmentToolsEnabled, setDevelopmentToolsEnabled] = useState(
+		import.meta.env.DEV,
+	);
 	const canCreateDevelopmentOrder =
-		development &&
+		developmentToolsEnabled &&
 		hasSystemPermission(permissions, systemPermission("orders", "create"));
 	const { markFailure, markSuccess } = useVisiblePolling(() => {
 		snapshotRef.current = null;
@@ -99,6 +101,7 @@ export function OrdersPage() {
 						cursor: snapshot.cursors.get(state.pagination.pageIndex),
 					},
 				});
+				setDevelopmentToolsEnabled(result.developmentToolsEnabled);
 				if (result.nextCursor)
 					snapshot.cursors.set(
 						state.pagination.pageIndex + 1,
@@ -163,9 +166,14 @@ export function OrdersPage() {
 			cell: ({ row }) => (
 				<div>
 					<code className="block text-xs">{row.original.id}</code>
-					<span className="text-muted-foreground text-xs">
-						{row.original.externalOrderId}
-					</span>
+					<div className="flex flex-wrap items-center gap-1.5">
+						<span className="text-muted-foreground text-xs">
+							{row.original.externalOrderId}
+						</span>
+						{row.original.isTest ? (
+							<Badge variant="outline">{m.orders_test_order_label()}</Badge>
+						) : null}
+					</div>
 				</div>
 			),
 		},
@@ -232,7 +240,18 @@ export function OrdersPage() {
 					row.original.status,
 				);
 				const refundable = ["paid", "overpaid"].includes(row.original.status);
-				if (!(development || active || refundable || row.original.notifyUrl))
+				const canOpenTestTools =
+					developmentToolsEnabled &&
+					(import.meta.env.DEV || row.original.isTest);
+				const canSimulateTestStatus =
+					canOpenTestTools &&
+					hasSystemPermission(
+						permissions,
+						systemPermission("orders", "update"),
+					);
+				if (
+					!(canOpenTestTools || active || refundable || row.original.notifyUrl)
+				)
 					return null;
 				return (
 					<div className="flex justify-end">
@@ -247,7 +266,7 @@ export function OrdersPage() {
 								</ProButton>
 							</DropdownMenuTrigger>
 							<DropdownMenuContent align="end">
-								{development ? (
+								{canOpenTestTools ? (
 									<>
 										<DropdownMenuItem
 											onClick={() =>
@@ -257,12 +276,14 @@ export function OrdersPage() {
 											<ExternalLink />
 											{m.common_preview()}
 										</DropdownMenuItem>
-										<DropdownMenuItem
-											onClick={() => setSimulatingOrder(row.original)}
-										>
-											<SlidersHorizontal />
-											{m.orders_simulate_status()}
-										</DropdownMenuItem>
+										{canSimulateTestStatus ? (
+											<DropdownMenuItem
+												onClick={() => setSimulatingOrder(row.original)}
+											>
+												<SlidersHorizontal />
+												{m.orders_simulate_status()}
+											</DropdownMenuItem>
+										) : null}
 									</>
 								) : null}
 								{row.original.notifyUrl ? (

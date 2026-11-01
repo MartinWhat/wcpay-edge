@@ -11,7 +11,7 @@ export async function getCheckoutOrderWithDatabase(
 ): Promise<CheckoutOrder | null> {
 	const row = await db
 		.prepare(
-			`SELECT o.id, o.external_order_id, o.status, o.amount_minor, o.currency,
+			`SELECT o.id, o.external_order_id, o.is_test, o.status, o.amount_minor, o.currency,
 			 o.currency_decimals, o.payment_url, o.received_amount_units, o.return_url, o.expires_at,
 			 ops.expected_amount_units,
 			 COALESCE(ops.asset_code, a.code) AS code,
@@ -36,6 +36,7 @@ export async function getCheckoutOrderWithDatabase(
 		.first<{
 			id: string;
 			external_order_id: string;
+			is_test: number;
 			status: OrderStatus;
 			amount_minor: string;
 			currency: string;
@@ -62,6 +63,7 @@ export async function getCheckoutOrderWithDatabase(
 			: undefined;
 	return {
 		trade_id: row.id,
+		is_test: row.is_test === 1,
 		external_order_id: row.external_order_id,
 		amount: minorToDecimal(row.amount_minor, row.currency_decimals),
 		...(actualAmount ? { actual_amount: actualAmount } : {}),

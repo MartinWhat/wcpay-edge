@@ -38,6 +38,12 @@ const fields: Record<
 > = {
 	general: [
 		{
+			key: "orders.development_tools_enabled",
+			label: m.settings_test_order_tools(),
+			description: m.settings_test_order_tools_description(),
+			type: "switch",
+		},
+		{
 			key: "orders.immediate_release_mode",
 			label: m.settings_immediate_release_mode(),
 			description: m.settings_immediate_release_mode_description(),
@@ -354,19 +360,20 @@ function settingsSchema(
 								? ("textarea" as const)
 								: ("text" as const),
 			required: field.required ?? field.type !== "password",
-			...(field.key === "orders.immediate_release_mode"
+			...(field.type === "switch"
 				? {
 						render: (control: {
 							value: unknown;
 							onChange: (value: boolean) => void;
 						}) => (
 							<Switch
-								id="orders-immediate-release-mode"
-								aria-label={m.settings_immediate_release_mode()}
+								id={field.key}
+								aria-label={field.label}
 								value={control.value === true}
 								onChange={(enabled) => {
 									control.onChange(enabled);
-									setImmediateReleaseMode(enabled);
+									if (field.key === "orders.immediate_release_mode")
+										setImmediateReleaseMode(enabled);
 								}}
 							/>
 						),

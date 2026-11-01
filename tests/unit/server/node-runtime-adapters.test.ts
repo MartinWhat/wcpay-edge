@@ -88,6 +88,28 @@ describe("Bun SQLite database", () => {
 		);
 		database.close();
 	});
+
+	it("applies SQLite table checks across temporary-table renames", async () => {
+		const directory = await temporaryDirectory();
+		await writeFile(
+			join(directory, "0000_initial.sql"),
+			'CREATE TABLE "__new_example" (kind TEXT, CONSTRAINT kind_check CHECK("__new_example"."kind" = \'ready\'));--> statement-breakpoint ALTER TABLE "__new_example" RENAME TO "example";',
+		);
+		const database = openNodeDatabase(":memory:");
+		const url = pathToFileURL(`${directory}/`);
+
+		expect(await applyNodeMigrations(database, url)).toEqual({
+			applied: 1,
+			total: 1,
+		});
+		expect(() =>
+			database.sqlite.run("INSERT INTO example (kind) VALUES ('ready')"),
+		).not.toThrow();
+		expect(() =>
+			database.sqlite.run("INSERT INTO example (kind) VALUES ('invalid')"),
+		).toThrow();
+		database.close();
+	});
 });
 
 describe("NodeMemoryCache", () => {

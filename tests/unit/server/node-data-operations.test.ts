@@ -226,21 +226,29 @@ async function createD1ExportSql() {
 	const migrations = (await readdir(drizzle))
 		.filter((name) => /^\d+_.+\.sql$/.test(name))
 		.sort();
-	const statements = await Promise.all(
-		migrations.map((name) => readFile(join(drizzle, name), "utf8")),
-	);
-	return `
-		CREATE TABLE d1_migrations (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			name TEXT UNIQUE,
-			applied_at TEXT NOT NULL
-		);
-		${migrations
-			.map(
-				(name, index) =>
-					`INSERT INTO d1_migrations (id, name, applied_at) VALUES (${index + 1}, '${name}', CURRENT_TIMESTAMP);`,
+	const database = openNodeDatabase(":memory:");
+	try {
+		await applyNodeMigrations(database);
+		const schema = database.sqlite
+			.query(
+				"SELECT sql FROM sqlite_master WHERE sql IS NOT NULL AND name != 'node_migrations' AND name NOT LIKE 'sqlite_%' ORDER BY CASE type WHEN 'table' THEN 0 WHEN 'index' THEN 1 ELSE 2 END, name",
 			)
-			.join("\n")}
-		${statements.join("\n")}
-	`;
+			.all() as Array<{ sql: string }>;
+		return `
+			CREATE TABLE d1_migrations (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				name TEXT UNIQUE,
+				applied_at TEXT NOT NULL
+			);
+			${migrations
+				.map(
+					(name, index) =>
+						`INSERT INTO d1_migrations (id, name, applied_at) VALUES (${index + 1}, '${name}', CURRENT_TIMESTAMP);`,
+				)
+				.join("\n")}
+			${schema.map(({ sql }) => `${sql};`).join("\n")}
+		`;
+	} finally {
+		database.close();
+	}
 }

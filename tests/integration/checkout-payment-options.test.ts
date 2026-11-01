@@ -169,6 +169,35 @@ describe("checkout receiving method selection", () => {
 		});
 	});
 
+	it("does not expose payment selection for test orders", async () => {
+		const testOrderId = "26071306234512345680";
+		const now = Date.now();
+		await db
+			.prepare(
+				`INSERT INTO orders
+				 (id, external_order_id, status, amount_minor, currency, currency_decimals,
+				  payment_asset_id, received_amount_units, is_test, expires_at, version, created_at, updated_at)
+				 VALUES (?, 'test-order', 'pending', '1250', 'USD', 2, NULL, '0', 1, ?, 0, ?, ?)`,
+			)
+			.bind(testOrderId, now + 900_000, now, now)
+			.run();
+
+		await expect(
+			listCheckoutPaymentOptions(db, testOrderId),
+		).resolves.toMatchObject({
+			selectable: false,
+			options: [],
+			unavailableReason: "test_order",
+		});
+		await expect(
+			selectCheckoutPaymentOption(db, {
+				orderId: testOrderId,
+				receivingMethodId: methodId,
+				paymentMethodId: "asset-usdt-tron",
+			}),
+		).rejects.toMatchObject({ code: "order_unavailable", status: 409 });
+	});
+
 	it("quotes with a catalog default rate but not with an expired observation", async () => {
 		// The seeded USD/CNY row is a never-synchronized catalog default.
 		await expect(

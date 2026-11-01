@@ -49,11 +49,12 @@ export async function createPaymentReview(
 	const { contentType, extension, sha256: evidenceSha256 } = image;
 
 	const order = await dependencies.db
-		.prepare("SELECT status FROM orders WHERE id = ? LIMIT 1")
+		.prepare("SELECT status, is_test FROM orders WHERE id = ? LIMIT 1")
 		.bind(data.orderId)
-		.first<{ status: string }>();
+		.first<{ status: string; is_test: number }>();
 	if (
 		!order ||
+		order.is_test === 1 ||
 		!["pending", "confirming", "partially_paid", "expired"].includes(
 			order.status,
 		)

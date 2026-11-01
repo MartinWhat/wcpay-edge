@@ -68,6 +68,51 @@ describe("merchant order service on D1", () => {
 		).resolves.toMatchObject({ orderId: created.orderId, status: "pending" });
 	});
 
+	it("marks test orders and rejects merchant payment callbacks", async () => {
+		const created = await createOrder(
+			db,
+			{
+				externalOrderId: "admin-test-order",
+				amount: "25.00",
+				currency: "USD",
+			},
+			"https://pay.example.test",
+			{ isTest: true },
+		);
+		const stored = await db
+			.prepare(
+				`SELECT is_test, api_key_id, notify_url, payment_asset_id,
+				 (SELECT COUNT(*) FROM order_payment_snapshots WHERE order_id = orders.id) AS snapshots
+				 FROM orders WHERE id = ?`,
+			)
+			.bind(created.orderId)
+			.first();
+		expect(stored).toEqual({
+			is_test: 1,
+			api_key_id: null,
+			notify_url: null,
+			payment_asset_id: null,
+			snapshots: 0,
+		});
+
+		await expect(
+			createOrder(
+				db,
+				{
+					externalOrderId: "admin-test-order-with-callback",
+					amount: "25.00",
+					currency: "USD",
+					notifyUrl: "https://merchant.example/notify",
+				},
+				"https://pay.example.test",
+				{ isTest: true },
+			),
+		).rejects.toMatchObject({
+			code: "test_order_payment_not_allowed",
+			status: 422,
+		});
+	});
+
 	it("creates a target lock and snapshot, and queries the order", async () => {
 		const created = await createOrder(
 			db,

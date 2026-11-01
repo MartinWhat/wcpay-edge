@@ -111,18 +111,19 @@ export function CheckoutPage({
 		statusDetail === "paid" || statusDetail === "overpaid"
 			? safeCheckoutReturnUrl(order?.redirect_url)
 			: null;
-	const reviewAction = order ? (
-		<PaymentReviewDialog
-			disabled={order.review_status === "pending"}
-			onSubmitted={() =>
-				setOrder((current) =>
-					current ? { ...current, review_status: "pending" } : current,
-				)
-			}
-			orderId={orderId}
-			transactionHash={txHash}
-		/>
-	) : null;
+	const reviewAction =
+		order && !order.is_test ? (
+			<PaymentReviewDialog
+				disabled={order.review_status === "pending"}
+				onSubmitted={() =>
+					setOrder((current) =>
+						current ? { ...current, review_status: "pending" } : current,
+					)
+				}
+				orderId={orderId}
+				transactionHash={txHash}
+			/>
+		) : null;
 
 	useEffect(() => {
 		document.title = brand.title;

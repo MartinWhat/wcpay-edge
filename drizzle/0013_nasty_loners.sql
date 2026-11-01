@@ -1,0 +1,1 @@
+ALTER TABLE `orders` ADD `is_test` integer DEFAULT false NOT NULL;

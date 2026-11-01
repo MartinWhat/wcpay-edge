@@ -58,7 +58,9 @@ export async function applyNodeMigrations(
 					throw new Error(`Applied migration changed: ${migration.name}`);
 				continue;
 			}
-			for (const statement of splitMigration(migration.sql))
+			for (const statement of splitMigration(
+				normalizeNodeMigrationSql(migration.sql),
+			))
 				database.sqlite.run(statement);
 			record.run(migration.name, migration.checksum, Date.now());
 			appliedCount += 1;
@@ -78,6 +80,11 @@ function splitMigration(sql: string) {
 		.split("--> statement-breakpoint")
 		.map((statement) => statement.trim())
 		.filter(Boolean);
+}
+
+function normalizeNodeMigrationSql(sql: string) {
+	// SQLite CHECK constraints must use unqualified columns after table renames.
+	return sql.replace(/"__new_[^"]+"\./g, "");
 }
 
 function sha256(value: string) {
