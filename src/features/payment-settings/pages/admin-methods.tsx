@@ -642,19 +642,7 @@ function configurationFields(
 				name: "appId",
 				label: m.receiving_alipay_app_id(),
 				secret: false,
-				description: undefined,
-			},
-			{
-				name: "privateKey",
-				label: m.receiving_alipay_private_key(),
-				secret: true,
-				description: m.receiving_alipay_private_key_help(),
-			},
-			{
-				name: "alipayPublicKey",
-				label: m.receiving_alipay_public_key(),
-				secret: true,
-				description: m.receiving_alipay_public_key_help(),
+				description: m.receiving_alipay_app_id_help(),
 			},
 		];
 	return [

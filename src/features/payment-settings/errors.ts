@@ -9,6 +9,7 @@ export type PaymentSettingsErrorCode =
 	| "payment_connection_not_configured"
 	| "payment_method_not_found"
 	| "receiving_method_mixed_rail"
+	| "receiving_method_alipay_connection_required"
 	| "receiving_method_target_conflict"
 	| "receiving_method_not_found"
 	| "receiving_method_invalid_limits"
@@ -52,6 +53,10 @@ const errorDefinitions: Record<
 	receiving_method_mixed_rail: {
 		status: 422,
 		message: "Receiving method assets must use the same payment rail",
+	},
+	receiving_method_alipay_connection_required: {
+		status: 422,
+		message: "An enabled Alipay connection for this App ID is required",
 	},
 	receiving_method_target_conflict: {
 		status: 409,

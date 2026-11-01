@@ -28,6 +28,7 @@ describe("payment settings Server Function error contract", () => {
 		["payment_connection_unhealthy", 409],
 		["payment_method_not_found", 404],
 		["receiving_method_mixed_rail", 422],
+		["receiving_method_alipay_connection_required", 422],
 		["receiving_method_target_conflict", 409],
 		["receiving_method_not_found", 404],
 		["receiving_method_invalid_limits", 422],
@@ -64,6 +65,10 @@ describe("payment settings Server Function error contract", () => {
 		],
 		["payment_method_not_found", m.payment_settings_error_method_not_found()],
 		["receiving_method_mixed_rail", m.payment_settings_error_mixed_rail()],
+		[
+			"receiving_method_alipay_connection_required",
+			m.payment_settings_error_receiving_method_alipay_connection_required(),
+		],
 		[
 			"receiving_method_target_conflict",
 			m.payment_settings_error_receiving_method_target_conflict(),

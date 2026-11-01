@@ -30,6 +30,12 @@ and are encrypted together; changing them keeps that method disabled until its
 target and provider identity pass validation again. Blockchain endpoint and RPC
 API-key configuration is accepted only on chain connection configurations.
 
+Alipay is a fiat provider. Its connection stores the App ID, application private
+key, and Alipay public key for one environment and payment product. A receiving
+method selects that App ID as its business target without storing a second copy
+of the keys. The connection initiates payments and verifies callbacks; the
+receiving method controls checkout exposure.
+
 Required confirmations belong to the payment method. Provider-account adapters
 normally use `1`. Never use a withdrawal-enabled exchange key; GMPay Edge only
 needs account identity and incoming-history access.

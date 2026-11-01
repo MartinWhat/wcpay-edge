@@ -37,9 +37,6 @@ const alipayConfiguration = z
 			.string()
 			.trim()
 			.regex(/^\d{8,32}$/),
-		privateKey: z.string().trim().min(1).max(16_384),
-		alipayPublicKey: z.string().trim().min(1).max(16_384),
-		keyType: z.enum(["PKCS1", "PKCS8"]).default("PKCS8"),
 	})
 	.strict();
 
@@ -84,12 +81,7 @@ export function parseReceivingProviderConfiguration(
 			targetType: "provider" as const,
 			targetField: "appId",
 			targetValue: parsed.appId,
-			credentials: {
-				appId: parsed.appId,
-				privateKey: parsed.privateKey,
-				alipayPublicKey: parsed.alipayPublicKey,
-				keyType: parsed.keyType,
-			},
+			credentials: null,
 		};
 	}
 	throw paymentSettingsError("receiving_method_configuration_required");

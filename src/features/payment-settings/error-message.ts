@@ -22,6 +22,8 @@ export function paymentSettingsOperationErrorMessage(error: unknown) {
 			return m.payment_settings_error_method_not_found();
 		case "receiving_method_mixed_rail":
 			return m.payment_settings_error_mixed_rail();
+		case "receiving_method_alipay_connection_required":
+			return m.payment_settings_error_receiving_method_alipay_connection_required();
 		case "receiving_method_target_conflict":
 			return m.payment_settings_error_receiving_method_target_conflict();
 		case "receiving_method_not_found":

@@ -10,7 +10,7 @@ import { adminContext } from "#/features/payment-settings/server/admin-context";
 import { deleteReceivingMethod } from "#/features/payment-settings/server/delete-receiving-method";
 import { parseReceivingProviderConfiguration } from "#/features/payment-settings/server/provider-config";
 import { unitsToDecimal } from "#/lib/money";
-import { encryptSecret } from "#/lib/secrets";
+import { decryptSecret, encryptSecret } from "#/lib/secrets";
 import { requestId } from "#/server/http";
 
 const receivingMethodIdInput = z.object({
@@ -195,6 +195,15 @@ export const createReceivingMethodFn = createServerFn({ method: "POST" })
 		)
 			throw paymentSettingsError("receiving_method_mixed_rail");
 		const target = receivingTarget(first.kind, first.code, data.configuration);
+		if (
+			first.code === "alipay" &&
+			!(await hasConfiguredAlipayConnection(
+				context.db,
+				target.value,
+				context.runtime.integrationConfigSecret,
+			))
+		)
+			throw paymentSettingsError("receiving_method_alipay_connection_required");
 		if (
 			await context.db
 				.prepare(
@@ -404,6 +413,42 @@ function receivingTarget(
 		metadata: { address: value },
 		credentials: null,
 	};
+}
+
+async function hasConfiguredAlipayConnection(
+	db: D1Database,
+	targetValue: string,
+	integrationConfigSecret: string,
+) {
+	const connections = await db
+		.prepare(
+			`SELECT credential.config_encrypted
+			 FROM payment_ingresses connection
+			 JOIN payment_ingress_credentials credential
+			   ON credential.payment_ingress_id = connection.id
+			 WHERE connection.rail_code = 'alipay' AND connection.enabled = 1`,
+		)
+		.all<{ config_encrypted: string }>();
+	for (const connection of connections.results) {
+		try {
+			const config: unknown = JSON.parse(
+				await decryptSecret(
+					connection.config_encrypted,
+					integrationConfigSecret,
+				),
+			);
+			if (
+				config &&
+				typeof config === "object" &&
+				"appId" in config &&
+				config.appId === targetValue
+			)
+				return true;
+		} catch {
+			// A malformed connection is not a usable Alipay target.
+		}
+	}
+	return false;
 }
 
 export const setReceivingMethodEnabledFn = createServerFn({ method: "POST" })
