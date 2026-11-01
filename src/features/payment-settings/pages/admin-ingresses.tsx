@@ -753,11 +753,11 @@ function FiatProviderForm({
 		<ModalForm
 			open={open}
 			onOpenChange={onOpenChange}
-			title="Configure Alipay"
+			title={m.receiving_alipay_title()}
 			description={
 				connection.has_fiat_credentials
-					? "Re-enter the application private key and Alipay public key to rotate credentials."
-					: "Store the Alipay application credentials encrypted on this instance."
+					? m.receiving_alipay_configured()
+					: m.receiving_alipay_not_configured()
 			}
 			schema={[
 				{ name: "name", label: m.common_name(), required: true },
@@ -770,18 +770,18 @@ function FiatProviderForm({
 				},
 				{
 					name: "appId",
-					label: "Alipay App ID",
+					label: m.receiving_alipay_app_id(),
 					required: true,
 				},
 				{
 					name: "privateKey",
-					label: "Application private key",
+					label: m.receiving_alipay_private_key(),
 					required: true,
 					fieldProps: { type: "password" },
 				},
 				{
 					name: "alipayPublicKey",
-					label: "Alipay public key",
+					label: m.receiving_alipay_public_key(),
 					required: true,
 					fieldProps: { type: "password" },
 				},
@@ -817,7 +817,7 @@ function kindLabel(kind: IngressRow["kind"]) {
 	if (kind === "chain") return m.nav_networks();
 	if (kind === "exchange") return m.nav_exchanges();
 	if (kind === "wallet") return m.nav_wallets();
-	return "Fiat";
+	return m.receiving_fiat_methods();
 }
 
 function transportBadgeClass(transport: IngressRow["transport"]) {

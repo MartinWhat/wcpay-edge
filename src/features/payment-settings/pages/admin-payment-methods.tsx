@@ -128,5 +128,5 @@ function kindLabel(kind: Kind) {
 	if (kind === "chain") return m.nav_networks();
 	if (kind === "exchange") return m.nav_exchanges();
 	if (kind === "wallet") return m.nav_wallets();
-	return "Fiat";
+	return m.receiving_fiat_methods();
 }
