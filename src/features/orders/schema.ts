@@ -56,6 +56,8 @@ export const createOrderSchema = z
 			.toLowerCase()
 			.regex(/^[a-z0-9-]{2,32}$/)
 			.optional(),
+		alipayEnvironment: z.enum(["production", "sandbox"]).optional(),
+		alipayProduct: z.enum(["website", "face_to_face"]).optional(),
 		description: z.string().max(500).optional(),
 		returnUrl: z
 			.url()
@@ -72,12 +74,21 @@ export const createOrderSchema = z
 		expiresInMs: z.number().int().min(60_000).max(604_800_000).optional(),
 	})
 	.superRefine((value, context) => {
-		if (Boolean(value.paymentAsset) === Boolean(value.paymentNetwork)) return;
-		context.addIssue({
-			code: "custom",
-			message: "Payment asset and network must be provided together",
-			path: [value.paymentAsset ? "paymentNetwork" : "paymentAsset"],
-		});
+		if (Boolean(value.paymentAsset) !== Boolean(value.paymentNetwork))
+			context.addIssue({
+				code: "custom",
+				message: "Payment asset and network must be provided together",
+				path: [value.paymentAsset ? "paymentNetwork" : "paymentAsset"],
+			});
+		for (const field of ["alipayEnvironment", "alipayProduct"] as const) {
+			if (value[field] === undefined || value.paymentNetwork === "alipay")
+				continue;
+			context.addIssue({
+				code: "custom",
+				message: "Alipay options require the alipay payment network",
+				path: [field],
+			});
+		}
 	});
 
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;

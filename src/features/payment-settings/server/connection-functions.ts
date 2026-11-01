@@ -4,6 +4,7 @@ import { paymentSettingsPermission } from "#/features/access/system-rbac";
 import { officialProviderApiUrl } from "#/features/payment-settings/catalog";
 import { paymentSettingsError } from "#/features/payment-settings/errors";
 import {
+	createAlipayPaymentConnectionInput,
 	createPaymentConnectionInput,
 	paymentConnectionIdInput,
 	updateChainPaymentConnectionInput,
@@ -13,7 +14,11 @@ import {
 import { adminContext } from "#/features/payment-settings/server/admin-context";
 import { loadPaymentConnectionApiKey } from "#/features/payment-settings/server/connection-credentials";
 import { testPaymentConnection } from "#/features/payment-settings/server/connection-health";
-import { AlipayProvider } from "#/integrations/payment-rails/alipay";
+import {
+	type AlipayEnvironment,
+	AlipayProvider,
+	alipayEndpoints,
+} from "#/integrations/payment-rails/alipay";
 import { encryptSecret } from "#/lib/secrets";
 import { requestId } from "#/server/http";
 
@@ -30,6 +35,8 @@ type PaymentIngressRow = {
 	type: "rpc" | "provider" | "provider_webhook";
 	transport: "http" | "websocket" | "webhook";
 	endpoint: string | null;
+	provider_environment: AlipayEnvironment;
+	provider_product: "website" | "face_to_face";
 	priority: number;
 	enabled: number;
 	health_status: "unknown" | "healthy" | "degraded" | "unhealthy";
@@ -62,6 +69,7 @@ export const getPaymentIngressesPageFn = createServerFn({
 				 COALESCE(pr.name, pc.network) AS rail_name, pr.kind,
 				 pc.type, pc.transport, COALESCE(pc.endpoint, pc.external_source_id) AS endpoint,
 				 pc.priority, pc.enabled, pc.health_status,
+				 pc.provider_environment, pc.provider_product,
 				 pc.last_latency_ms, pc.last_checked_at, pc.last_error_code,
 				 pc.timeout_ms, pc.block_lookback, pc.log_block_range, pc.max_scan_transactions,
 				 pc.external_source_id, pc.mode,
@@ -172,7 +180,7 @@ export const updateFiatConnectionFn = createServerFn({ method: "POST" })
 		const context = await adminContext(paymentSettingsPermission("update"));
 		const connection = await context.db
 			.prepare(
-				`SELECT connection.rail_code, connection.endpoint, rail.kind
+				`SELECT connection.rail_code, connection.endpoint, connection.provider_environment, rail.kind
 				 FROM payment_ingresses connection
 				 JOIN payment_rails rail ON rail.code = connection.rail_code
 				 WHERE connection.id = ? AND connection.type = 'provider' LIMIT 1`,
@@ -181,13 +189,15 @@ export const updateFiatConnectionFn = createServerFn({ method: "POST" })
 			.first<{
 				rail_code: string;
 				endpoint: string | null;
+				provider_environment: AlipayEnvironment;
 				kind: RailKind;
 			}>();
 		if (connection?.kind !== "fiat" || connection.rail_code !== "alipay")
 			throw paymentSettingsError("payment_connection_not_found");
 		const provider = await AlipayProvider.create({
 			...data.credentials,
-			endpoint: connection.endpoint ?? "https://openapi.alipay.com",
+			endpoint:
+				connection.endpoint ?? alipayEndpoints[connection.provider_environment],
 		});
 		const encrypted = await encryptSecret(
 			JSON.stringify(provider.config),
@@ -238,6 +248,74 @@ export const updateFiatConnectionFn = createServerFn({ method: "POST" })
 				),
 		]);
 		return { id: data.id };
+	});
+
+export const createAlipayConnectionFn = createServerFn({ method: "POST" })
+	.validator((input: z.input<typeof createAlipayPaymentConnectionInput>) =>
+		createAlipayPaymentConnectionInput.parse(input),
+	)
+	.handler(async ({ data }) => {
+		const context = await adminContext(paymentSettingsPermission("create"));
+		const provider = await AlipayProvider.create({
+			...data.credentials,
+			endpoint: alipayEndpoints[data.environment],
+		});
+		const encrypted = await encryptSecret(
+			JSON.stringify(provider.config),
+			context.runtime.integrationConfigSecret,
+		);
+		const id = crypto.randomUUID();
+		const now = Date.now();
+		await context.db.batch([
+			context.db
+				.prepare(
+					`INSERT INTO payment_ingresses
+					(id, rail_code, name, type, transport, endpoint, provider_environment,
+					 provider_product, priority, enabled, health_status, created_at, updated_at)
+					VALUES (?, 'alipay', ?, 'provider', 'http', ?, ?, ?, ?, 1, 'unknown', ?, ?)`,
+				)
+				.bind(
+					id,
+					data.name,
+					alipayEndpoints[data.environment],
+					data.environment,
+					data.product,
+					data.priority,
+					now,
+					now,
+				),
+			context.db
+				.prepare(
+					`INSERT INTO payment_ingress_credentials
+					(payment_ingress_id, config_encrypted, created_at, updated_at)
+					VALUES (?, ?, ?, ?)`,
+				)
+				.bind(id, encrypted, now, now),
+			context.db
+				.prepare(
+					`INSERT INTO audit_logs
+					(id, actor_user_id, action, target_type, target_id, request_id,
+					 ip_address, after, created_at)
+					VALUES (?, ?, 'payment_connection.created', 'payment_connection', ?, ?, ?, ?, ?)`,
+				)
+				.bind(
+					crypto.randomUUID(),
+					context.user.id,
+					id,
+					requestId(context.request),
+					context.request.headers.get("cf-connecting-ip"),
+					JSON.stringify({
+						railCode: "alipay",
+						environment: data.environment,
+						product: data.product,
+						name: data.name,
+						priority: data.priority,
+						hasCredentials: true,
+					}),
+					now,
+				),
+		]);
+		return { id };
 	});
 
 export const updateChainConnectionFn = createServerFn({ method: "POST" })

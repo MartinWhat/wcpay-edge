@@ -17,6 +17,7 @@ export interface CheckoutOrder {
 	currency?: string;
 	network?: string;
 	payment_url?: string;
+	alipay_product?: "website" | "face_to_face";
 	receive_address?: string;
 	expiration_time?: string;
 	redirect_url?: string;

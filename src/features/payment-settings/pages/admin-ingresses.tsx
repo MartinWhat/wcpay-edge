@@ -36,6 +36,7 @@ import {
 	paymentSettingsOperationErrorMessage,
 } from "#/features/payment-settings/error-message";
 import {
+	createAlipayConnectionFn,
 	createPaymentConnectionFn,
 	getPaymentIngressesPageFn,
 	setPaymentConnectionEnabledFn,
@@ -193,6 +194,21 @@ export function PaymentIngressesPage() {
 						{row.original.type === "provider_webhook" ? (
 							<Badge variant="secondary">Alchemy</Badge>
 						) : null}
+						{row.original.kind === "fiat" &&
+						row.original.rail_code === "alipay" ? (
+							<>
+								<Badge variant="outline">
+									{row.original.provider_environment === "sandbox"
+										? m.payment_alipay_sandbox()
+										: m.payment_alipay_production()}
+								</Badge>
+								<Badge variant="outline">
+									{row.original.provider_product === "face_to_face"
+										? m.payment_alipay_face_to_face()
+										: m.payment_alipay_website()}
+								</Badge>
+							</>
+						) : null}
 					</div>
 					<code className="max-w-96 truncate text-muted-foreground text-xs">
 						{row.original.endpoint ?? m.common_not_configured()}
@@ -326,6 +342,122 @@ export function PaymentIngressesPage() {
 										</ProButton>
 									}
 									onCreated={refresh}
+								/>
+								<ModalForm
+									title={m.payment_alipay_connection_new()}
+									description={m.payment_alipay_connection_new_description()}
+									trigger={
+										<ProButton variant="outline">
+											{m.payment_alipay_connection_new()}
+										</ProButton>
+									}
+									schema={[
+										{ name: "name", label: m.common_name(), required: true },
+										{
+											name: "environment",
+											label: m.payment_alipay_environment(),
+											required: true,
+											render: (field) => (
+												<Select
+													ariaLabel={m.payment_alipay_environment()}
+													value={String(field.value ?? "sandbox")}
+													onChange={(value) =>
+														field.onChange(
+															typeof value === "string" ? value : "sandbox",
+														)
+													}
+													options={[
+														{
+															label: m.payment_alipay_production(),
+															value: "production",
+														},
+														{
+															label: m.payment_alipay_sandbox(),
+															value: "sandbox",
+														},
+													]}
+												/>
+											),
+										},
+										{
+											name: "product",
+											label: m.payment_alipay_product(),
+											required: true,
+											render: (field) => (
+												<Select
+													ariaLabel={m.payment_alipay_product()}
+													value={String(field.value ?? "website")}
+													onChange={(value) =>
+														field.onChange(
+															typeof value === "string" ? value : "website",
+														)
+													}
+													options={[
+														{
+															label: m.payment_alipay_website(),
+															value: "website",
+														},
+														{
+															label: m.payment_alipay_face_to_face(),
+															value: "face_to_face",
+														},
+													]}
+												/>
+											),
+										},
+										{
+											name: "priority",
+											label: m.infrastructure_priority(),
+											valueType: "text",
+											required: true,
+											fieldProps: { type: "number", min: 0, max: 10000 },
+										},
+										{
+											name: "appId",
+											label: m.receiving_alipay_app_id(),
+											required: true,
+										},
+										{
+											name: "privateKey",
+											label: m.receiving_alipay_private_key(),
+											required: true,
+											fieldProps: { type: "password" },
+										},
+										{
+											name: "alipayPublicKey",
+											label: m.receiving_alipay_public_key(),
+											required: true,
+											fieldProps: { type: "password" },
+										},
+									]}
+									initialValues={{
+										environment: "sandbox",
+										product: "website",
+										priority: 100,
+									}}
+									onFinish={async (values) => {
+										await createAlipayConnectionFn({
+											data: {
+												name: String(values.name ?? ""),
+												environment: String(values.environment ?? "sandbox") as
+													| "production"
+													| "sandbox",
+												product: String(values.product ?? "website") as
+													| "website"
+													| "face_to_face",
+												priority: Number(values.priority ?? 100),
+												credentials: {
+													appId: String(values.appId ?? ""),
+													privateKey: String(values.privateKey ?? ""),
+													alipayPublicKey: String(values.alipayPublicKey ?? ""),
+													keyType: "PKCS8",
+												},
+											},
+										});
+										await refresh();
+										toast.success(m.payment_config_saved());
+									}}
+									onFinishFailed={showError}
 								/>
 								<ModalForm
 									title={m.infrastructure_connection_new()}

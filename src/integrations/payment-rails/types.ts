@@ -2,7 +2,8 @@ import type { PaymentRailKind } from "#/features/payment-settings/rail-kind";
 
 export type HostedPayment = {
 	providerOrderId: string | null;
-	paymentUrl: string;
+	paymentUrl?: string;
+	qrCode?: string;
 };
 
 export type ProviderPayment = {

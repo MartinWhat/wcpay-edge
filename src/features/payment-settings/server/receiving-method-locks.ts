@@ -8,6 +8,8 @@ export type PaymentAllocationInput = {
 	paymentMethodId: string;
 	expectedAmountUnits: string;
 	orderAmountUsdMinor?: string;
+	alipayEnvironment?: "production" | "sandbox";
+	alipayProduct?: "website" | "face_to_face";
 	expiresAt: number;
 	reusableAt?: number;
 	immediateReleaseMode?: boolean;
@@ -135,9 +137,16 @@ export async function allocateReceivingMethodAndSnapshot(
 			 WHERE rm.id = ? AND asset.id = ? AND rm.enabled = 1 AND rm.target_value != ''
 				 AND connection.enabled = 1
 				 AND (rail.kind IN ('exchange', 'wallet', 'fiat') OR connection.health_status = 'healthy')
+				 AND (asset.rail_code != 'alipay' OR
+					(connection.provider_environment = ? AND connection.provider_product = ?))
 			 ORDER BY connection.priority, connection.id LIMIT 1`,
 		)
-		.bind(input.receivingMethodId, input.paymentMethodId)
+		.bind(
+			input.receivingMethodId,
+			input.paymentMethodId,
+			input.alipayEnvironment ?? "production",
+			input.alipayProduct ?? "website",
+		)
 		.first<{
 			id: string;
 			min_amount_minor: string | null;

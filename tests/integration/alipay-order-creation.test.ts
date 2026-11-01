@@ -1,6 +1,14 @@
-import { generateKeyPairSync } from "node:crypto";
+import { createSign, generateKeyPairSync } from "node:crypto";
 import { Miniflare } from "miniflare";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import {
+	afterAll,
+	afterEach,
+	beforeAll,
+	describe,
+	expect,
+	it,
+	vi,
+} from "vitest";
 import { createOrder } from "#/features/orders/server/create";
 import { encryptSecret } from "#/lib/secrets";
 import { applyMigrations } from "./migrations";
@@ -32,6 +40,8 @@ describe("Alipay order creation", () => {
 		vi.unstubAllGlobals();
 		await miniflare.dispose();
 	});
+
+	afterEach(() => vi.unstubAllGlobals());
 
 	it("keeps CNY minor units without an exchange quote and stores the signed payment URL", async () => {
 		const order = await createOrder(
@@ -68,6 +78,80 @@ describe("Alipay order creation", () => {
 		).toContain('"total_amount":"1.01"');
 	});
 
+	it("routes sandbox face-to-face payments and stores QR separately from the target snapshot", async () => {
+		const qrCode = "https://qr.alipay.com/sandbox-face-to-face";
+		const fetchMock = vi.fn(
+			async (input: RequestInfo | URL, init?: RequestInit) => {
+				const endpoint = new URL(String(input));
+				expect(endpoint.origin).toBe(
+					"https://openapi-sandbox.dl.alipaydev.com",
+				);
+				const requestBody = new URLSearchParams(String(init?.body));
+				expect(requestBody.get("method")).toBe("alipay.trade.precreate");
+				const bizContent = requestBody.get("biz_content");
+				if (!bizContent) throw new Error("Alipay business content is missing");
+				const requestData: unknown = JSON.parse(bizContent);
+				if (
+					!requestData ||
+					typeof requestData !== "object" ||
+					!("out_trade_no" in requestData) ||
+					typeof requestData.out_trade_no !== "string"
+				)
+					throw new Error("Alipay order ID is missing");
+				const data = {
+					code: "10000",
+					msg: "Success",
+					out_trade_no: requestData.out_trade_no,
+					qr_code: qrCode,
+				};
+				const signature = createSign("RSA-SHA256")
+					.update(JSON.stringify(data))
+					.sign(privateKey, "base64");
+				return new Response(
+					JSON.stringify({
+						alipay_trade_precreate_response: data,
+						sign: signature,
+					}),
+					{ headers: { "content-type": "application/json" } },
+				);
+			},
+		);
+		vi.stubGlobal("fetch", fetchMock);
+
+		const order = await createOrder(
+			db,
+			{
+				externalOrderId: "alipay-sandbox-face-to-face-001",
+				amount: "2.35",
+				currency: "CNY",
+				paymentAsset: "CNY",
+				paymentNetwork: "alipay",
+				alipayEnvironment: "sandbox",
+				alipayProduct: "face_to_face",
+			},
+			"https://pay.example.test",
+		);
+		const stored = await db
+			.prepare(
+				"SELECT o.provider_order_id, o.payment_url, snapshot.connection_id, snapshot.target_value FROM orders o JOIN order_payment_snapshots snapshot ON snapshot.order_id = o.id AND snapshot.rail_code = 'alipay' WHERE o.id = ?",
+			)
+			.bind(order.orderId)
+			.first<{
+				provider_order_id: string | null;
+				payment_url: string | null;
+				connection_id: string;
+				target_value: string;
+			}>();
+
+		expect(fetchMock).toHaveBeenCalledOnce();
+		expect(stored).toEqual({
+			provider_order_id: order.orderId,
+			payment_url: qrCode,
+			connection_id: "connection-alipay-sandbox-face-to-face",
+			target_value: appId,
+		});
+	});
+
 	it("rejects non-CNY Alipay orders at the input boundary", async () => {
 		await expect(
 			createOrder(
@@ -94,6 +178,17 @@ async function seed(db: D1Database) {
 			alipayPublicKey: publicKey,
 			keyType: "PKCS8",
 			endpoint: "https://openapi.alipay.com",
+			timeoutMs: 8000,
+		}),
+		secret,
+	);
+	const sandboxEncrypted = await encryptSecret(
+		JSON.stringify({
+			appId,
+			privateKey,
+			alipayPublicKey: publicKey,
+			keyType: "PKCS8",
+			endpoint: "https://openapi-sandbox.dl.alipaydev.com",
 			timeoutMs: 8000,
 		}),
 		secret,
@@ -129,6 +224,16 @@ async function seed(db: D1Database) {
 				"INSERT INTO payment_ingress_credentials (payment_ingress_id, config_encrypted, created_at, updated_at) VALUES ('connection-alipay', ?, ?, ?)",
 			)
 			.bind(encrypted, now, now),
+		db
+			.prepare(
+				"INSERT INTO payment_ingresses (id, rail_code, name, type, endpoint, priority, enabled, health_status, provider_environment, provider_product, created_at, updated_at) VALUES ('connection-alipay-sandbox-face-to-face', 'alipay', 'Alipay sandbox face-to-face', 'provider', 'https://openapi-sandbox.dl.alipaydev.com', 50, 1, 'unknown', 'sandbox', 'face_to_face', ?, ?)",
+			)
+			.bind(now, now),
+		db
+			.prepare(
+				"INSERT INTO payment_ingress_credentials (payment_ingress_id, config_encrypted, created_at, updated_at) VALUES ('connection-alipay-sandbox-face-to-face', ?, ?, ?)",
+			)
+			.bind(sandboxEncrypted, now, now),
 		db
 			.prepare(
 				"INSERT INTO receiving_methods (id, name, rail_code, target_type, target_value, normalized_target_value, enabled, created_at, updated_at) VALUES ('receiving-alipay', 'Alipay account', 'alipay', 'provider', ?, ?, 1, ?, ?)",

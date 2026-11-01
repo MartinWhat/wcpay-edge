@@ -29,6 +29,7 @@ describe("AlipayProvider", () => {
 			notifyUrl: "https://pay.example.test/api/providers/alipay/notify",
 			returnUrl: "https://merchant.example.test/return",
 		});
+		if (!result.paymentUrl) throw new Error("Website payment URL is missing");
 		const url = new URL(result.paymentUrl);
 		expect(result.providerOrderId).toBe("order-001");
 		expect(url.origin).toBe("https://openapi.alipay.com");
@@ -111,6 +112,43 @@ describe("AlipayProvider", () => {
 		await expect(provider.queryPayment("order-001")).resolves.toMatchObject({
 			status: "pending",
 		});
+	});
+	it("creates a signed face-to-face QR payment", async () => {
+		const data = {
+			code: "10000",
+			msg: "Success",
+			out_trade_no: "order-002",
+			qr_code: "https://qr.alipay.com/test-code",
+		};
+		const response = {
+			alipay_trade_precreate_response: data,
+			sign: createSign("RSA-SHA256")
+				.update(JSON.stringify(data), "utf8")
+				.sign(privateKey, "base64"),
+		};
+		const fetcher = vi.fn(async () => new Response(JSON.stringify(response)));
+		const provider = await AlipayProvider.create(config, fetcher);
+
+		await expect(
+			provider.createHostedPayment({
+				orderId: "order-002",
+				amountMinor: "101",
+				currency: "CNY",
+				currencyDecimals: 2,
+				description: "Test order",
+				notifyUrl: "https://pay.example.test/api/providers/alipay/notify",
+				product: "face_to_face",
+			}),
+		).resolves.toEqual({
+			providerOrderId: "order-002",
+			qrCode: "https://qr.alipay.com/test-code",
+		});
+		expect(fetcher).toHaveBeenCalledWith(
+			"https://openapi.alipay.com/gateway.do",
+			expect.objectContaining({
+				body: expect.stringContaining("method=alipay.trade.precreate"),
+			}),
+		);
 	});
 });
 

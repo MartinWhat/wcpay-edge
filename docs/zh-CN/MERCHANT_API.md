@@ -27,6 +27,10 @@ POST /payments/gmpay/v1/order/create-transaction
 
 同时省略 `token` 与 `network` 会创建可选择支付方式的 `pending` 订单，不会静默默认到 TRON 或 USDT。付款人通过返回的 `payment_url` 进入统一收银台。
 
+支付宝订单使用 `token=CNY`、`network=alipay`。可选 `alipay_environment` 为
+`production` 或 `sandbox`，可选 `alipay_product` 为 `website`（电脑网站支付）或
+`face_to_face`（当面付）；默认是生产环境的电脑网站支付。支付宝环境和产品参数不能用于其他网络。
+
 创建、查询与收银台响应使用 epusdt 兼容的整数 `status`：`1` 表示等待支付，`2` 表示支付成功，`3` 表示已关闭，`4` 表示等待选择支付方式。`status_detail` 保留 `confirming`、`partially_paid`、`overpaid` 等 GMPay Edge 细粒度状态。
 
 ## GMPay HMAC-SHA256 签名
@@ -149,7 +153,7 @@ EPay 客户端可使用 GET Query 或表单 POST：
 /payments/epay/v1/order/create-transaction/submit.php
 ```
 
-适配器接受 `pid`、`money`、`out_trade_no`、`notify_url`，以及可选的 `return_url`、`name`、`type`、`sign`、`sign_type=MD5`。签名排除 `sign` 和 `sign_type`。`type=asset.network` 选择支付方式；空值或 `alipay` 创建可选择订单，不默认到任何链。成功返回与 GMPay 相同的订单 Envelope，客户端只需打开一次 `data.payment_url`。
+适配器接受 `pid`、`money`、`out_trade_no`、`notify_url`，以及可选的 `return_url`、`name`、`type`、`alipay_environment`、`sign`、`sign_type=MD5`。签名排除 `sign` 和 `sign_type`。`type=alipay` 选择电脑网站支付，`type=alipay_qr` 选择当面付；两者可用 `alipay_environment=production|sandbox` 指定环境。省略 `type` 会创建可选择支付方式的订单；`type=asset.network` 选择其他收款方式。成功返回与 GMPay 相同的订单 Envelope，客户端只需打开一次 `data.payment_url`。
 
 EPay GET 回调使用同一 Secret 签名并要求纯文本 `ok`。EPay 字段和 `trade_status` 只存在于边界，数据库仍使用 GMPay Edge 状态机。
 

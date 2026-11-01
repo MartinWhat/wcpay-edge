@@ -81,6 +81,16 @@ export const paymentIngresses = sqliteTable(
 		externalNetwork: text("external_network"),
 		externalSourceId: text("external_source_id"),
 		configEncrypted: text("config_encrypted"),
+		providerEnvironment: text("provider_environment", {
+			enum: ["production", "sandbox"],
+		})
+			.notNull()
+			.default("production"),
+		providerProduct: text("provider_product", {
+			enum: ["website", "face_to_face"],
+		})
+			.notNull()
+			.default("website"),
 		mode: text("mode", { enum: ["shadow", "active"] }),
 		desiredAddressesHash: text("desired_addresses_hash"),
 		reconcileRequiredAt: integer("reconcile_required_at", {
@@ -132,6 +142,19 @@ export const paymentIngresses = sqliteTable(
 			"payment_ingresses_provider_enabled_check",
 			sql`type != 'provider' OR enabled = 1`,
 		),
+		check(
+			"payment_ingresses_alipay_route_check",
+			sql`${table.railCode} != 'alipay' OR (${table.providerEnvironment} IN ('production', 'sandbox') AND ${table.providerProduct} IN ('website', 'face_to_face'))`,
+		),
+		index("payment_ingresses_alipay_route_idx")
+			.on(
+				table.railCode,
+				table.providerEnvironment,
+				table.providerProduct,
+				table.enabled,
+				table.priority,
+			)
+			.where(sql`${table.railCode} = 'alipay'`),
 		index("payment_ingresses_rail_priority_idx").on(
 			table.railCode,
 			table.enabled,

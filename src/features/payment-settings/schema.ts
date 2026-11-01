@@ -79,3 +79,13 @@ export const updateFiatPaymentConnectionInput = paymentConnectionIdInput
 		credentials: z.record(z.string(), z.string().trim().max(16_384)),
 	})
 	.strict();
+
+export const createAlipayPaymentConnectionInput = z
+	.object({
+		name: z.string().trim().min(1).max(100),
+		environment: z.enum(["production", "sandbox"]),
+		product: z.enum(["website", "face_to_face"]),
+		priority: z.number().int().min(0).max(10_000),
+		credentials: z.record(z.string(), z.string().trim().max(16_384)),
+	})
+	.strict();

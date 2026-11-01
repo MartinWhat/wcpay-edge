@@ -1047,5 +1047,18 @@
 	"settings_error_email_credential_required": "This provider requires an API key or SMTP password.",
 	"settings_error_email_test_rate_limited": "Too many test emails were sent recently. Try again later.",
 	"auth_error_too_many_requests": "Too many sign-in attempts. Please wait a moment and try again.",
-	"status_pending_review": "Pending review"
+	"status_pending_review": "Pending review",
+	"checkout_alipay_redirecting": "Opening the Alipay website payment page",
+	"checkout_alipay_preparing": "Preparing your Alipay payment",
+	"checkout_open_alipay": "Open Alipay payment",
+	"checkout_alipay_scan": "Scan this QR code with Alipay to pay",
+	"checkout_alipay_qr_title": "Alipay payment QR code",
+	"payment_alipay_environment": "Alipay environment",
+	"payment_alipay_production": "Production",
+	"payment_alipay_sandbox": "Sandbox",
+	"payment_alipay_product": "Alipay product",
+	"payment_alipay_website": "Website payment",
+	"payment_alipay_face_to_face": "Face-to-face payment",
+	"payment_alipay_connection_new": "Add Alipay connection",
+	"payment_alipay_connection_new_description": "Create a separate connection for one Alipay environment and product. Credentials are stored encrypted."
 }

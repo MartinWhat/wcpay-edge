@@ -74,8 +74,8 @@ export async function reconcilePaymentInfrastructure(
 				.prepare(
 					`INSERT OR IGNORE INTO payment_ingresses
 					(id, rail_code, name, type, transport, endpoint, api_key, priority,
-					 enabled, health_status, created_at, updated_at)
-					VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?)`,
+					 provider_environment, provider_product, enabled, health_status, created_at, updated_at)
+					VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?)`,
 				)
 				.bind(
 					connection.id,
@@ -85,6 +85,12 @@ export async function reconcilePaymentInfrastructure(
 					"transport" in connection ? connection.transport : "http",
 					connection.endpoint,
 					connection.priority,
+					"providerEnvironment" in connection
+						? (connection.providerEnvironment ?? "production")
+						: "production",
+					"providerProduct" in connection
+						? (connection.providerProduct ?? "website")
+						: "website",
 					connection.enabled,
 					connection.healthStatus,
 					now,

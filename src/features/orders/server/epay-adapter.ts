@@ -39,8 +39,14 @@ const epayInputSchema = z
 			.string()
 			.trim()
 			.toLowerCase()
-			.refine((value) => value === "alipay" || epayAssetNetworkType.test(value))
+			.refine(
+				(value) =>
+					value === "alipay" ||
+					value === "alipay_qr" ||
+					epayAssetNetworkType.test(value),
+			)
 			.optional(),
+		alipay_environment: z.enum(["production", "sandbox"]).optional(),
 		param: z.string().max(500).optional(),
 		clientip: z.string().max(64).optional(),
 		device: z.string().max(64).optional(),
@@ -50,7 +56,19 @@ const epayInputSchema = z
 			.regex(/^[0-9a-f]{32}$/),
 		sign_type: z.string().trim().toUpperCase().optional(),
 	})
-	.catchall(z.string().max(500));
+	.catchall(z.string().max(500))
+	.superRefine((value, context) => {
+		if (
+			value.alipay_environment !== undefined &&
+			value.type !== "alipay" &&
+			value.type !== "alipay_qr"
+		)
+			context.addIssue({
+				code: "custom",
+				message: "Alipay environment requires an Alipay payment type",
+				path: ["alipay_environment"],
+			});
+	});
 
 const epayQuerySchema = z
 	.object({
@@ -101,6 +119,7 @@ export async function authenticateEpayInput(
 
 export function toEpayOrderInput(input: EpayInput): CreateOrderInput {
 	const selection = epaySelection(input.type);
+	const isAlipayProduct = input.type === "alipay" || input.type === "alipay_qr";
 	return parseMerchantOrderInput({
 		externalOrderId: input.out_trade_no,
 		amount: input.money,
@@ -110,6 +129,13 @@ export function toEpayOrderInput(input: EpayInput): CreateOrderInput {
 		description: input.name || undefined,
 		returnUrl: epayReturnUrl(input.return_url, input.param),
 		notifyUrl: input.notify_url,
+		...(isAlipayProduct
+			? {
+					alipayEnvironment: input.alipay_environment,
+					alipayProduct:
+						input.type === "alipay_qr" ? "face_to_face" : "website",
+				}
+			: {}),
 		metadata: {
 			integration: "epay",
 			epayType: input.type || "alipay",
@@ -120,7 +146,8 @@ export function toEpayOrderInput(input: EpayInput): CreateOrderInput {
 
 export function epaySelection(value: string | undefined) {
 	if (!value) return null;
-	if (value === "alipay") return { asset: "CNY", network: "alipay" };
+	if (value === "alipay" || value === "alipay_qr")
+		return { asset: "CNY", network: "alipay" };
 	const match = value.match(epayAssetNetworkType);
 	if (!match) throw new Error("Unsupported EPay payment type");
 	const [, asset, network] = match;

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { signEpayParameters } from "#/features/api-keys/server/gmpay-signature";
+import { createOrderSchema } from "#/features/orders/schema";
 import {
 	epaySelection,
 	parseEpayInput,
@@ -39,22 +40,68 @@ describe("EPay compatibility adapter", () => {
 		});
 	});
 
-	it("maps the Alipay alias to its fiat rail and keeps an empty type selectable", () => {
+	it("maps Alipay product types and keeps an empty type selectable", () => {
 		expect(epaySelection("alipay")).toEqual({
 			asset: "CNY",
 			network: "alipay",
 		});
+		expect(epaySelection("alipay_qr")).toEqual({
+			asset: "CNY",
+			network: "alipay",
+		});
 		expect(epaySelection(undefined)).toBeNull();
+		const common = {
+			pid: "merchant",
+			money: "1.00",
+			out_trade_no: "order",
+			notify_url: "https://merchant.example/notify",
+			sign: "a".repeat(32),
+		};
+		const website = parseEpayInput({
+			...common,
+			type: "alipay",
+			alipay_environment: "sandbox",
+		});
+		expect(website.success).toBe(true);
+		if (website.success)
+			expect(toEpayOrderInput(website.data)).toMatchObject({
+				paymentAsset: "CNY",
+				paymentNetwork: "alipay",
+				alipayEnvironment: "sandbox",
+				alipayProduct: "website",
+			});
+		const faceToFace = parseEpayInput({ ...common, type: "alipay_qr" });
+		expect(faceToFace.success).toBe(true);
+		if (faceToFace.success)
+			expect(toEpayOrderInput(faceToFace.data)).toMatchObject({
+				alipayProduct: "face_to_face",
+			});
+		const selectable = parseEpayInput(common);
+		expect(selectable.success).toBe(true);
+		if (selectable.success) {
+			const order = toEpayOrderInput(selectable.data);
+			expect(order.paymentNetwork).toBeUndefined();
+			expect(order.alipayProduct).toBeUndefined();
+		}
+		expect(
+			parseEpayInput({ ...common, alipay_environment: "sandbox" }),
+		).toMatchObject({ success: false });
 		expect(
 			parseEpayInput({
-				pid: "merchant",
-				money: "1.00",
-				out_trade_no: "order",
-				notify_url: "https://merchant.example/notify",
+				...common,
 				type: "unsupported!",
-				sign: "a".repeat(32),
 			}),
 		).toMatchObject({ success: false });
+		expect(
+			createOrderSchema.safeParse({
+				externalOrderId: "schema-order",
+				amount: "1.00",
+				currency: "CNY",
+				paymentAsset: "USDT",
+				paymentNetwork: "tron",
+				alipayEnvironment: "sandbox",
+			}).success,
+		).toBe(false);
 		expect(() => epaySelection("unsupported")).toThrow(
 			"Unsupported EPay payment type",
 		);

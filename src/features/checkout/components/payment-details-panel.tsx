@@ -67,17 +67,35 @@ export function PaymentDetailsPanel({
 	onReviewSubmitted: () => void;
 }) {
 	const [txHashDialogOpen, setTxHashDialogOpen] = useState(false);
-	const qrValue = order?.receive_address ?? "";
 	const paymentUrl = safeHostedPaymentUrl(order?.payment_url);
+	const isAlipayFaceToFace = order?.alipay_product === "face_to_face";
+	const isAlipayWebsite = order?.alipay_product === "website";
+	const qrValue = isAlipayFaceToFace
+		? (paymentUrl ?? "")
+		: (order?.receive_address ?? "");
 	const isOkpayPayment =
 		paymentFlow === "okpay" || String(order?.network ?? "") === "okpay";
 
-	if (isOkpayPayment || (paymentUrl && !qrValue)) {
+	if ((isAlipayFaceToFace || isAlipayWebsite) && !paymentUrl)
+		return (
+			<section className="w-full pb-4">
+				<div className="mb-4 w-full rounded-2xl border bg-card px-5 py-5 text-card-foreground shadow-md">
+					<p className="font-semibold text-sm">
+						{m.checkout_alipay_preparing()}
+					</p>
+				</div>
+			</section>
+		);
+
+	if (isOkpayPayment || isAlipayWebsite || (paymentUrl && !qrValue)) {
+		const isAlipayRedirect = isAlipayWebsite && Boolean(paymentUrl);
 		return (
 			<section className="w-full pb-4">
 				<div className="mb-4 w-full rounded-2xl border bg-card px-5 py-5 text-card-foreground shadow-md">
 					<p className="mb-2 font-semibold text-sm">
-						{m.checkout_redirecting_okpay()}
+						{isAlipayRedirect
+							? m.checkout_alipay_redirecting()
+							: m.checkout_redirecting_okpay()}
 					</p>
 					{paymentUrl ? (
 						<p className="break-all text-muted-foreground text-sm">
@@ -91,14 +109,16 @@ export function PaymentDetailsPanel({
 						onClick={() => {
 							window.open(
 								paymentUrl,
-								"okpay_checkout",
+								isAlipayRedirect ? "alipay_checkout" : "okpay_checkout",
 								"popup,width=480,height=720",
 							);
 						}}
 						type="button"
 					>
 						<ExternalLink />
-						{m.checkout_open_okpay()}
+						{isAlipayRedirect
+							? m.checkout_open_alipay()
+							: m.checkout_open_okpay()}
 					</Button>
 				) : null}
 			</section>
@@ -109,7 +129,9 @@ export function PaymentDetailsPanel({
 		<section className="w-full pb-4">
 			<div className="mb-4 w-full overflow-hidden rounded-2xl border bg-card px-5 pt-5 pb-0 text-card-foreground shadow-md">
 				<div className="mb-3 flex items-center justify-between">
-					<p className="font-semibold text-sm">{m.checkout_scan()}</p>
+					<p className="font-semibold text-sm">
+						{isAlipayFaceToFace ? m.checkout_alipay_scan() : m.checkout_scan()}
+					</p>
 					<div className="relative size-10 shrink-0">
 						<svg
 							aria-hidden="true"
@@ -160,7 +182,11 @@ export function PaymentDetailsPanel({
 								fgColor="#111111"
 								level="M"
 								size={120}
-								title={m.checkout_qr_title()}
+								title={
+									isAlipayFaceToFace
+										? m.checkout_alipay_qr_title()
+										: m.checkout_qr_title()
+								}
 								value={qrValue}
 							/>
 						) : (

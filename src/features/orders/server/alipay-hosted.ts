@@ -22,7 +22,7 @@ export async function initializeAlipayOrder(
 		);
 	const connection = await db
 		.prepare(
-			`SELECT credential.config_encrypted, ops.target_value
+			`SELECT credential.config_encrypted, ops.target_value, connection.provider_product
 			 FROM order_payment_snapshots ops
 			 JOIN payment_ingresses connection ON connection.id = ops.connection_id
 			 LEFT JOIN payment_ingress_credentials credential
@@ -30,7 +30,11 @@ export async function initializeAlipayOrder(
 			 WHERE ops.order_id = ? AND ops.rail_code = 'alipay' LIMIT 1`,
 		)
 		.bind(order.orderId)
-		.first<{ config_encrypted: string | null; target_value: string }>();
+		.first<{
+			config_encrypted: string | null;
+			target_value: string;
+			provider_product: "website" | "face_to_face";
+		}>();
 	if (!connection?.config_encrypted)
 		throw new OrderServiceError(
 			"provider_configuration_missing",
@@ -61,20 +65,23 @@ export async function initializeAlipayOrder(
 				runtime.betterAuthUrl,
 			).toString(),
 			...(input.returnUrl ? { returnUrl: input.returnUrl } : {}),
+			product: connection.provider_product,
 		});
-		const updated = await db
-			.prepare(
-				`UPDATE orders SET provider_order_id = ?, payment_url = ?, updated_at = ?
+		const updates = [
+			db
+				.prepare(
+					`UPDATE orders SET provider_order_id = ?, payment_url = ?, updated_at = ?
 				 WHERE id = ? AND status = 'pending'`,
-			)
-			.bind(
-				hosted.providerOrderId,
-				hosted.paymentUrl,
-				Date.now(),
-				order.orderId,
-			)
-			.run();
-		if (updated.meta.changes !== 1)
+				)
+				.bind(
+					hosted.providerOrderId,
+					hosted.paymentUrl ?? hosted.qrCode ?? null,
+					Date.now(),
+					order.orderId,
+				),
+		];
+		const updated = await db.batch(updates);
+		if (updated[0]?.meta.changes !== 1)
 			throw new OrderServiceError(
 				"order_not_payable",
 				"The order is no longer payable",

@@ -1047,5 +1047,18 @@
 	"settings_error_email_credential_required": "此服務商需要 API 金鑰或 SMTP 密碼。",
 	"settings_error_email_test_rate_limited": "近期發送的測試郵件過多，請稍後再試。",
 	"auth_error_too_many_requests": "登入嘗試次數過多，請稍候再試。",
-	"status_pending_review": "待審核"
+	"status_pending_review": "待審核",
+	"checkout_alipay_redirecting": "正在開啟支付寶電腦網站支付頁面",
+	"checkout_alipay_preparing": "正在準備支付寶付款",
+	"checkout_open_alipay": "開啟支付寶收銀台",
+	"checkout_alipay_scan": "請使用支付寶掃描此 QR Code 付款",
+	"checkout_alipay_qr_title": "支付寶當面付 QR Code",
+	"payment_alipay_environment": "支付寶環境",
+	"payment_alipay_production": "正式環境",
+	"payment_alipay_sandbox": "沙箱環境",
+	"payment_alipay_product": "支付產品",
+	"payment_alipay_website": "電腦網站支付",
+	"payment_alipay_face_to_face": "當面付",
+	"payment_alipay_connection_new": "新增支付寶連線",
+	"payment_alipay_connection_new_description": "依支付寶環境和支付產品分別建立連線；每個連線使用獨立憑證並加密儲存。"
 }

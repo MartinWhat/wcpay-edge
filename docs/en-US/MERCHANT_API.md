@@ -37,6 +37,11 @@ Omitting both `token` and `network` creates a `pending` selectable order. It
 does not silently default to TRON or USDT. The checkout uses the returned
 `payment_url` to let the payer select an available receiving method.
 
+For Alipay, use `token=CNY` and `network=alipay`. Optional
+`alipay_environment` accepts `production` or `sandbox`, and optional
+`alipay_product` accepts `website` or `face_to_face`; the default is the
+production website product. Alipay routing fields are rejected for other networks.
+
 Create, query, and checkout responses expose the epusdt-compatible integer
 `status`: `1` means waiting for payment, `2` paid, `3` closed, and `4` waiting
 for payment method selection. `status_detail` retains the finer GMPay Edge
@@ -178,11 +183,14 @@ EPay clients may use GET query parameters or form POST at:
 
 The adapter accepts `pid`, `money`, `out_trade_no`, `notify_url`, optional
 `return_url`, `name`, `type`, plus `sign` and optional `sign_type=MD5`.
-Signature calculation excludes `sign` and `sign_type`. `type=asset.network`
-selects a payment method; empty or `alipay` creates a selectable order without
-defaulting to a chain. Success returns the same order envelope as GMPay. Open
-`data.payment_url` once to enter the unified GMPay Edge checkout; the create
-endpoint does not issue an intermediate redirect.
+`alipay_environment` is also optional. Signature calculation excludes `sign`
+and `sign_type`. `type=alipay` selects Alipay website payment; `type=alipay_qr`
+selects face-to-face QR payment. Either explicit Alipay type accepts
+`alipay_environment=production|sandbox`. Omitting `type` creates a selectable
+order; `type=asset.network` selects another receiving method. Success returns
+the same order envelope as GMPay. Open `data.payment_url` once to enter the
+unified GMPay Edge checkout; the create endpoint does not issue an intermediate
+redirect.
 
 The EPay adapter signs its GET callback query with the same Secret and requires
 plain text `ok`. EPay field names and `trade_status` exist only at this boundary;

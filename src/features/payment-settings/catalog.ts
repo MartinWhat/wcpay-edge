@@ -391,6 +391,8 @@ export const initialPaymentConnections = [
 		name: provider.name,
 		type: "provider" as const,
 		endpoint: provider.apiUrl,
+		providerEnvironment: "production" as const,
+		providerProduct: "website" as const,
 		priority: 100,
 		enabled: true,
 		healthStatus: "unknown" as const,

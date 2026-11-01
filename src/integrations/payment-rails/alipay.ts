@@ -6,6 +6,14 @@ import type {
 } from "#/integrations/payment-rails/types";
 import { isSafePublicUrl } from "#/lib/webhook-url";
 
+export const alipayEndpoints = {
+	production: "https://openapi.alipay.com",
+	sandbox: "https://openapi-sandbox.dl.alipaydev.com",
+} as const;
+
+export type AlipayEnvironment = keyof typeof alipayEndpoints;
+export type AlipayProduct = "website" | "face_to_face";
+
 const configSchema = z
 	.object({
 		appId: z
@@ -15,7 +23,7 @@ const configSchema = z
 		privateKey: z.string().min(1),
 		alipayPublicKey: z.string().min(1),
 		keyType: z.enum(["PKCS1", "PKCS8"]).default("PKCS8"),
-		endpoint: z.url().default("https://openapi.alipay.com"),
+		endpoint: z.url().default(alipayEndpoints.production),
 		timeoutMs: z.number().int().min(1000).max(30_000).default(8000),
 	})
 	.strict();
@@ -29,6 +37,13 @@ const queryResponseSchema = z.object({
 	trade_status: z.string().optional(),
 	total_amount: z.string().optional(),
 	receipt_amount: z.string().optional(),
+});
+
+const precreateResponseSchema = z.object({
+	code: z.string(),
+	msg: z.string(),
+	out_trade_no: z.string(),
+	qr_code: z.string().trim().min(1).max(2048),
 });
 
 export type AlipayConfig = z.infer<typeof configSchema>;
@@ -113,7 +128,53 @@ export class AlipayProvider implements FiatPaymentProvider {
 		description: string;
 		notifyUrl: string;
 		returnUrl?: string;
+		product?: AlipayProduct;
 	}): Promise<HostedPayment> {
+		if (input.product === "face_to_face") {
+			if (input.currency !== "CNY")
+				throw new AlipayError(
+					"Alipay only supports CNY orders",
+					"configuration",
+				);
+			if (!isSafePublicUrl(input.notifyUrl, ["https:"]))
+				throw new AlipayError(
+					"Alipay notify URL must use HTTPS",
+					"configuration",
+				);
+			const signed = this.sdk.sdkExecute("alipay.trade.precreate", {
+				notifyUrl: input.notifyUrl,
+				bizContent: {
+					outTradeNo: input.orderId,
+					totalAmount: minorAmount(input.amountMinor, input.currencyDecimals),
+					subject: input.description.slice(0, 256),
+				},
+			});
+			try {
+				const response = await this.requestGateway(signed);
+				const parsed = precreateResponseSchema.safeParse(response.data);
+				if (
+					!parsed.success ||
+					parsed.data.code !== "10000" ||
+					parsed.data.out_trade_no !== input.orderId
+				)
+					throw new AlipayError(
+						"Alipay did not create the QR payment",
+						"provider",
+					);
+				return { providerOrderId: input.orderId, qrCode: parsed.data.qr_code };
+			} catch (error) {
+				if (error instanceof AlipayError) throw error;
+				throw new AlipayError(
+					"Alipay could not create the QR payment",
+					"provider",
+				);
+			}
+		}
+		if (input.product !== undefined && input.product !== "website")
+			throw new AlipayError(
+				"Alipay payment product is invalid",
+				"configuration",
+			);
 		if (input.currency !== "CNY")
 			throw new AlipayError("Alipay only supports CNY orders", "configuration");
 		if (!isSafePublicUrl(input.notifyUrl, ["https:"]))
@@ -251,7 +312,7 @@ export class AlipayProvider implements FiatPaymentProvider {
 			throw new AlipayError("Alipay gateway returned an error", "network");
 		const envelope = parseJson(text);
 		const key = "alipay_trade_query_response";
-		const data = envelope[key];
+		const data = envelope[key] ?? envelope.alipay_trade_precreate_response;
 		const sign = envelope.sign;
 		if (!isRecord(data) || typeof sign !== "string")
 			throw new AlipayError(

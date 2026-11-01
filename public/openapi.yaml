@@ -85,6 +85,7 @@ paths:
         - { $ref: "#/components/parameters/EpayReturnUrl" }
         - { $ref: "#/components/parameters/EpayName" }
         - { $ref: "#/components/parameters/EpayType" }
+        - { $ref: "#/components/parameters/EpayAlipayEnvironment" }
         - { $ref: "#/components/parameters/EpayParam" }
         - { $ref: "#/components/parameters/EpayClientIp" }
         - { $ref: "#/components/parameters/EpayDevice" }
@@ -135,6 +136,7 @@ paths:
         - { $ref: "#/components/parameters/EpayReturnUrl" }
         - { $ref: "#/components/parameters/EpayName" }
         - { $ref: "#/components/parameters/EpayType" }
+        - { $ref: "#/components/parameters/EpayAlipayEnvironment" }
         - { $ref: "#/components/parameters/EpayParam" }
         - { $ref: "#/components/parameters/EpayClientIp" }
         - { $ref: "#/components/parameters/EpayDevice" }
@@ -204,7 +206,8 @@ components:
     EpayNotifyUrl: { name: notify_url, in: query, required: true, schema: { type: string, format: uri } }
     EpayReturnUrl: { name: return_url, in: query, required: false, schema: { type: string, format: uri } }
     EpayName: { name: name, in: query, required: false, schema: { type: string, maxLength: 500 } }
-    EpayType: { name: type, in: query, required: false, description: alipay keeps the existing selectable compatibility behavior; asset.network selects a payment method., schema: { type: string } }
+    EpayType: { name: type, in: query, required: false, description: alipay selects website payment; alipay_qr selects face-to-face QR payment; omit type for checkout selection; asset.network selects another payment method., schema: { type: string } }
+    EpayAlipayEnvironment: { name: alipay_environment, in: query, required: false, description: Only applies with type alipay or alipay_qr., schema: { type: string, enum: [production, sandbox] } }
     EpayParam: { name: param, in: query, required: false, description: Opaque merchant context returned unchanged in notifications, redirects, and queries., schema: { type: string, maxLength: 500 } }
     EpayClientIp: { name: clientip, in: query, required: false, schema: { type: string, maxLength: 64 } }
     EpayDevice: { name: device, in: query, required: false, schema: { type: string, maxLength: 64 } }
@@ -268,6 +271,8 @@ components:
         currency: { type: string, pattern: "^[A-Za-z]{3}$", description: "Active ISO 4217 fiat currency code such as USD; an unsupported code answers status_code 10009." }
         token: { type: string, pattern: "^[A-Za-z0-9_-]{2,20}$", description: Omit together with network to let checkout select a payment method. }
         network: { type: string, pattern: "^[A-Za-z0-9-]{2,32}$", description: Omit together with token to let checkout select a payment method. }
+        alipay_environment: { type: string, enum: [production, sandbox], description: Only applies when token is CNY and network is alipay; defaults to production. }
+        alipay_product: { type: string, enum: [website, face_to_face], description: Only applies when token is CNY and network is alipay; defaults to website. }
         amount:
           description: "Positive decimal with at most 18 integer and 8 fraction digits; anything else answers status_code 10004."
           oneOf:
@@ -343,7 +348,8 @@ components:
         notify_url: { type: string, format: uri }
         return_url: { type: string, format: uri }
         name: { type: string, maxLength: 500 }
-        type: { type: string, description: alipay or asset.network }
+        type: { type: string, description: alipay selects website payment; alipay_qr selects face-to-face QR payment; omit type for checkout selection; asset.network selects another payment method. }
+        alipay_environment: { type: string, enum: [production, sandbox], description: Only applies when type is alipay or alipay_qr. }
         param: { type: string, maxLength: 500 }
         clientip: { type: string, maxLength: 64 }
         device: { type: string, maxLength: 64 }

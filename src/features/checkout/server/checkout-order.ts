@@ -18,6 +18,7 @@ export async function getCheckoutOrderWithDatabase(
 			 COALESCE(ops.decimals, a.decimals) AS decimals,
 			 COALESCE(ops.rail_code, a.rail_code) AS network,
 			 ops.target_value AS address,
+			 CASE WHEN ops.rail_code = 'alipay' THEN connection.provider_product END AS alipay_product,
 			 COALESCE(MAX(op.confirmations), 0) AS confirmations,
 			 COALESCE(ops.required_confirmations, 1) AS required_confirmations,
 			 (SELECT pr.status FROM payment_reviews pr WHERE pr.order_id = o.id
@@ -25,9 +26,10 @@ export async function getCheckoutOrderWithDatabase(
 			 FROM orders o
 			 LEFT JOIN payment_assets a ON a.id = o.payment_asset_id
 			 LEFT JOIN order_payment_snapshots ops ON ops.order_id = o.id
+			 LEFT JOIN payment_ingresses connection ON connection.id = ops.connection_id
 			 LEFT JOIN order_payments op ON op.order_id = o.id
 			 WHERE o.id = ?
-			 GROUP BY o.id, a.id, ops.order_id
+			 GROUP BY o.id, a.id, ops.order_id, connection.provider_product
 			 LIMIT 1`,
 		)
 		.bind(orderId)
@@ -47,6 +49,7 @@ export async function getCheckoutOrderWithDatabase(
 			decimals: number | null;
 			network: string | null;
 			address: string | null;
+			alipay_product: "website" | "face_to_face" | null;
 			confirmations: number;
 			required_confirmations: number;
 			review_status: "pending" | "approved" | "rejected" | null;
@@ -66,6 +69,7 @@ export async function getCheckoutOrderWithDatabase(
 		currency: row.currency,
 		...(row.code ? { token: row.code } : {}),
 		...(row.network ? { network: row.network } : {}),
+		...(row.alipay_product ? { alipay_product: row.alipay_product } : {}),
 		...(row.address ? { receive_address: row.address } : {}),
 		expiration_time: new Date(row.expires_at).toISOString(),
 		...(row.return_url ? { redirect_url: row.return_url } : {}),

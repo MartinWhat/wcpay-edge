@@ -55,6 +55,8 @@ const gmpayCreateSchema = z.object({
 	redirect_url: z.string().trim().pipe(z.url()).optional(),
 	name: z.string().trim().max(500).optional(),
 	payment_type: z.string().trim().max(32).optional(),
+	alipay_environment: z.enum(["production", "sandbox"]).optional(),
+	alipay_product: z.enum(["website", "face_to_face"]).optional(),
 });
 
 export type GmpayCreateInput = z.infer<typeof gmpayCreateSchema>;
@@ -90,6 +92,8 @@ export function toCreateOrderInput(input: GmpayCreateInput): CreateOrderInput {
 		description: input.name || undefined,
 		returnUrl: input.redirect_url || undefined,
 		notifyUrl: input.notify_url,
+		alipayEnvironment: input.alipay_environment,
+		alipayProduct: input.alipay_product,
 		metadata: { integration: "gmpay" },
 	});
 }

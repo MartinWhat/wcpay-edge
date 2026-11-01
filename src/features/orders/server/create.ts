@@ -248,6 +248,8 @@ async function createOrderFromReceivingMethod(
 			receivingMethodId: methodId,
 			paymentMethodId: method.payment_method_id,
 			expectedAmountUnits,
+			alipayEnvironment: input.alipayEnvironment,
+			alipayProduct: input.alipayProduct,
 			...(orderAmountUsdMinor ? { orderAmountUsdMinor } : {}),
 			decimals: method.decimals,
 			expiresAt,
