@@ -80,6 +80,8 @@ Within each oldest-due batch, USDT orders are enqueued first; orders of the same
 
 Paid and overpaid orders remain in the scan rotation for the configured `payments.reorg_monitor_ms` window (86,400,000 milliseconds, or 24 hours, by default). Confirmed transaction events are refreshed during this period. A first provider miss marks the chain event as `missing` without changing the order; recovery is silent, while a second consecutive miss records a reorganization and atomically removes the payment from the order aggregate.
 
+Expired orders are scanned for late chain payments for at most 15 minutes after expiration. After that grace period, automatic polling stops; available provider event notifications and payer-submitted transaction hashes remain separate recovery paths. Fiat providers such as Alipay use their signed notification and provider-query flow and are not sent to the payment scan queue.
+
 ### Bounded I/O and retry budget
 
 Every adapter operation has one shared deadline: 8,000 ms by default and at most

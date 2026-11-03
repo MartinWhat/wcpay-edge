@@ -2,6 +2,7 @@ import { Miniflare } from "miniflare";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
 	advancePaymentScanCursor,
+	handlePaymentScan,
 	refreshPendingPaymentTransactions,
 } from "#/server/queue";
 import { runMaintenance } from "#/server/scheduled";
@@ -208,10 +209,25 @@ describe("payment scan scheduling fairness", () => {
 		]);
 	});
 
-	it("continues old-order monitoring after its method and target are disabled", async () => {
+	it("limits expired scans and skips Alipay in the payment scan queue", async () => {
 		const now = Date.now();
 		await db.batch([
 			db.prepare("UPDATE orders SET status = 'expired', updated_at = 0"),
+			db
+				.prepare(
+					"INSERT OR IGNORE INTO payment_rails (code, name, kind, adapter, created_at, updated_at) VALUES ('alipay', 'Alipay', 'fiat', 'alipay', ?, ?)",
+				)
+				.bind(now, now),
+			db
+				.prepare(
+					"INSERT INTO payment_assets (id, rail_code, code, symbol, kind, decimals, created_at, updated_at) VALUES ('alipay-asset', 'alipay', 'CNY', 'CNY', 'fiat', 2, ?, ?)",
+				)
+				.bind(now, now),
+			db
+				.prepare(
+					"INSERT INTO receiving_methods (id, name, rail_code, target_type, target_value, normalized_target_value, enabled, created_at, updated_at) VALUES ('method-alipay', 'Alipay', 'alipay', 'provider', 'app-id', 'app-id', 1, ?, ?)",
+				)
+				.bind(now, now),
 			db.prepare(
 				"UPDATE receiving_methods SET enabled = 0 WHERE id = 'method'",
 			),
@@ -236,11 +252,31 @@ describe("payment scan scheduling fairness", () => {
 					"INSERT INTO orders (id, external_order_id, status, amount_minor, currency, currency_decimals, payment_asset_id, received_amount_units, expires_at, version, created_at, updated_at) VALUES ('order-recent-expired', 'recent-expired', 'expired', '100', 'USD', 2, 'asset', '0', ?, 1, ?, ?)",
 				)
 				.bind(now - 1, now, now),
+			db
+				.prepare(
+					"INSERT INTO orders (id, external_order_id, status, amount_minor, currency, currency_decimals, payment_asset_id, received_amount_units, expires_at, version, created_at, updated_at) VALUES ('order-old-expired', 'old-expired', 'expired', '100', 'USD', 2, 'asset', '0', ?, 1, ?, ?)",
+				)
+				.bind(now - 16 * 60_000, now - 20 * 60_000, now - 16 * 60_000),
+			db
+				.prepare(
+					"INSERT INTO orders (id, external_order_id, status, amount_minor, currency, currency_decimals, payment_asset_id, received_amount_units, expires_at, paid_at, version, created_at, updated_at) VALUES ('order-alipay-paid', 'alipay-paid', 'paid', '100', 'CNY', 2, 'alipay-asset', '100', ?, ?, 1, ?, ?)",
+				)
+				.bind(now - 1, now - 1, now, now),
 		]);
 		await db.batch([
 			paymentSnapshot(db, "order-recent-paid", "TRecentPaid", now),
 			paymentSnapshot(db, "order-old-paid", "TOldPaid", now),
 			paymentSnapshot(db, "order-recent-expired", "TRecentExpired", now),
+			db
+				.prepare(
+					`INSERT INTO order_payment_snapshots
+					 (order_id, receiving_method_id, receiving_method_name, rail_code, rail_kind,
+					  asset_id, asset_code, decimals, target_value, adapter,
+					  required_confirmations, expected_amount_units, created_at)
+					 VALUES ('order-alipay-paid', 'method-alipay', 'Alipay', 'alipay', 'fiat',
+					  'alipay-asset', 'CNY', 2, 'app-id', 'alipay', 1, '100', ?)`,
+				)
+				.bind(now),
 		]);
 		const sendBatch = vi.fn().mockResolvedValue(undefined);
 		await runMaintenance(
@@ -254,6 +290,27 @@ describe("payment scan scheduling fairness", () => {
 				.filter((message) => message.body.kind === "payment.scan")
 				.map((message) => message.body.orderId),
 		).toEqual(["order-recent-paid", "order-recent-expired"]);
+
+		const ack = vi.fn();
+		const retry = vi.fn();
+		await handlePaymentScan(
+			{
+				id: "alipay-scan",
+				timestamp: new Date(now),
+				attempts: 1,
+				body: {
+					kind: "payment.scan",
+					version: 1,
+					orderId: "order-alipay-paid",
+					receivingMethodId: "method-alipay",
+				},
+				ack,
+				retry,
+			} as unknown as Parameters<typeof handlePaymentScan>[0],
+			{ DB: db } as Env,
+		);
+		expect(ack).toHaveBeenCalledOnce();
+		expect(retry).not.toHaveBeenCalled();
 	});
 
 	it("dispatches USDT first within the oldest due batch without starving other assets", async () => {

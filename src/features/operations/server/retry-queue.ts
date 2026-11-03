@@ -56,7 +56,8 @@ export async function retryQueueWorkload(
 			`SELECT orders.id, snapshot.receiving_method_id
 				 FROM orders
 				 CROSS JOIN order_payment_snapshots snapshot ON snapshot.order_id = orders.id
-				 WHERE orders.status IN ('pending', 'confirming', 'partially_paid')
+				 WHERE snapshot.rail_kind IN ('chain', 'exchange', 'wallet')
+				 AND orders.status IN ('pending', 'confirming', 'partially_paid')
 				 ORDER BY orders.last_payment_scan_at, orders.created_at, orders.id
 				 LIMIT 50`,
 		).all<{ id: string; receiving_method_id: string }>();

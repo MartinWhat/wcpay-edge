@@ -45,7 +45,7 @@ export async function handlePaymentScan(
 	adapterCache?: Map<string, ReceivingAdaptersPromise>,
 ): Promise<void> {
 	const payment = await env.DB.prepare(
-		`SELECT ops.asset_id, ops.asset_code, ops.target_value, o.provider_order_id,
+		`SELECT ops.asset_id, ops.asset_code, ops.rail_kind, ops.target_value, o.provider_order_id,
 		 o.payment_scan_cursor, o.created_at
 		 FROM order_payment_snapshots ops
 		 JOIN orders o ON o.id = ops.order_id
@@ -55,12 +55,17 @@ export async function handlePaymentScan(
 		.first<{
 			asset_id: string;
 			asset_code: string;
+			rail_kind: string;
 			target_value: string;
 			provider_order_id: string | null;
 			payment_scan_cursor: string | null;
 			created_at: number;
 		}>();
 	if (!payment) {
+		message.ack();
+		return;
+	}
+	if (!["chain", "exchange", "wallet"].includes(payment.rail_kind)) {
 		message.ack();
 		return;
 	}

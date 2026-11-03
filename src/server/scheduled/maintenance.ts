@@ -52,6 +52,7 @@ const RETENTION_MAX_DURATION_MS = 2_000;
 const MAX_TASK_RUN_RETENTION_MS = 90 * 86_400_000;
 const EXTERNAL_DISPATCH_LEASE_MS = 5 * 60_000;
 const SCHEDULED_WALL_BUDGET_MS = 15 * 60_000;
+const EXPIRED_PAYMENT_SCAN_GRACE_MS = 15 * 60_000;
 
 export async function runMaintenance(
 	env: Env,
@@ -261,6 +262,7 @@ async function loadDueMaintenanceWork(
 	fiatRateConfiguration: RateSyncConfiguration,
 ): Promise<DueMaintenanceWork> {
 	const monitorSince = now - reorgMonitorMs;
+	const expiredScanBefore = now - EXPIRED_PAYMENT_SCAN_GRACE_MS;
 	const defaultScanBefore = now - paymentScanIntervalMs;
 	const webhookRecoveryBefore = now - webhookRecoveryIntervalMs;
 	const rpcHealthDueBefore = now - rpcHealthIntervalMs;
@@ -286,14 +288,15 @@ async function loadDueMaintenanceWork(
 			  OR EXISTS(SELECT 1 FROM rate_limit_counters INDEXED BY rate_limit_counters_expires_idx WHERE expires_at <= ? LIMIT 1)
 			  OR EXISTS(SELECT 1 FROM idempotency_keys INDEXED BY idempotency_keys_expires_idx WHERE expires_at <= ? LIMIT 1)) AS frequent_cleanup,
 			 EXISTS(SELECT 1 FROM orders o INDEXED BY orders_payment_scan_idx
-			  JOIN order_payment_snapshots ops ON ops.order_id = o.id
+				  JOIN order_payment_snapshots ops ON ops.order_id = o.id
+			   AND ops.rail_kind IN ('chain','exchange','wallet')
 			  LEFT JOIN payment_ingresses source
 			   ON source.network = ops.rail_code AND source.provider = 'alchemy'
 			   AND source.enabled = 1 AND source.mode = 'active'
 			  WHERE o.status IN ('pending','confirming','partially_paid','paid','overpaid','expired')
 			  AND (((o.status IN ('pending','partially_paid') AND o.expires_at > ?) OR o.status = 'confirming')
 			   OR (o.status IN ('paid','overpaid') AND o.paid_at >= ?)
-			   OR (o.status = 'expired' AND o.updated_at >= ?))
+				   OR (o.status = 'expired' AND o.updated_at >= ?))
 			  AND (o.last_payment_scan_at IS NULL OR o.last_payment_scan_at <= CASE
 			   WHEN source.id IS NOT NULL AND source.health_status = 'healthy' THEN ?
 			   ELSE ? END) LIMIT 1) AS payment_scan`,
@@ -310,7 +313,7 @@ async function loadDueMaintenanceWork(
 			now,
 			now,
 			monitorSince,
-			monitorSince,
+			expiredScanBefore,
 			webhookRecoveryBefore,
 			defaultScanBefore,
 		)
@@ -829,12 +832,14 @@ async function enqueuePaymentScans(
 			"Payment Queue binding is unavailable",
 		);
 	const monitorSince = now - reorgMonitorMs;
+	const expiredScanBefore = now - EXPIRED_PAYMENT_SCAN_GRACE_MS;
 	const defaultScanBefore = now - paymentScanIntervalMs;
 	const webhookRecoveryBefore = now - webhookRecoveryIntervalMs;
 	const activeOrders = await env.DB.prepare(
 		`SELECT o.id, ops.receiving_method_id, ops.asset_code
 		 FROM orders o INDEXED BY orders_payment_scan_idx
 		 CROSS JOIN order_payment_snapshots ops ON ops.order_id = o.id
+		  AND ops.rail_kind IN ('chain','exchange','wallet')
 		 LEFT JOIN payment_ingresses source
 		  ON source.network = ops.rail_code AND source.provider = 'alchemy'
 		  AND source.enabled = 1 AND source.mode = 'active'
@@ -852,7 +857,7 @@ async function enqueuePaymentScans(
 		.bind(
 			now,
 			monitorSince,
-			monitorSince,
+			expiredScanBefore,
 			webhookRecoveryBefore,
 			defaultScanBefore,
 			batchSize,
