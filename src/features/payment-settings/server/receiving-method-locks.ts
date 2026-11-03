@@ -177,7 +177,10 @@ export async function allocateReceivingMethodAndSnapshot(
 	}
 
 	const lockId = crypto.randomUUID();
-	const collisionKey = `${input.receivingMethodId}:${method.asset_id}:${input.expectedAmountUnits}`;
+	const collisionKey =
+		method.rail_code === "alipay"
+			? null
+			: `${input.receivingMethodId}:${method.asset_id}:${input.expectedAmountUnits}`;
 	const statements: D1PreparedStatement[] = [];
 	let orderMutationIndex: number | undefined;
 	if (input.order) {

@@ -173,6 +173,39 @@ describe("receiving method allocation and immutable snapshots", () => {
 		expect(order?.version).toBe(1);
 	});
 
+	it("keeps Alipay allocations exact when orders share the same amount", async () => {
+		await seedAlipay(db);
+		const allocateAlipay = (orderId: string) =>
+			allocateUniqueReceivingMethodAndSnapshot(db, {
+				orderId,
+				receivingMethodId: "receiving-alipay",
+				paymentMethodId: "alipay-cny",
+				expectedAmountUnits: "1250",
+				decimals: 2,
+				expiresAt: 2_000,
+				reusableAt: 2_000,
+				now: 1_000,
+			});
+
+		await expect(allocateAlipay("order-alipay-a")).resolves.toMatchObject({
+			expectedAmountUnits: "1250",
+			paymentAmount: "12.5",
+		});
+		await expect(allocateAlipay("order-alipay-b")).resolves.toMatchObject({
+			expectedAmountUnits: "1250",
+			paymentAmount: "12.5",
+		});
+		await expect(
+			db
+				.prepare(
+					"SELECT collision_key FROM receiving_method_locks WHERE order_id IN ('order-alipay-a', 'order-alipay-b') ORDER BY order_id",
+				)
+				.all(),
+		).resolves.toMatchObject({
+			results: [{ collision_key: null }, { collision_key: null }],
+		});
+	});
+
 	it("reports an order version conflict without retrying other amounts", async () => {
 		await db
 			.prepare(
@@ -432,6 +465,28 @@ async function seed(db: D1Database) {
 				 version, created_at, updated_at)
 				 VALUES ('order-${suffix}', 'merchant-${suffix}', 'pending', '100', 'USD',
 				 2, 'asset-trx', '0', 2000, 0, 1, 1)`,
+			),
+		),
+	]);
+}
+
+async function seedAlipay(db: D1Database) {
+	await db.batch([
+		db.prepare(
+			"INSERT INTO payment_rails (code, name, kind, adapter, created_at, updated_at) VALUES ('alipay', 'Alipay', 'fiat', 'alipay', 1, 1)",
+		),
+		db.prepare(
+			"INSERT INTO payment_assets (id, rail_code, code, symbol, kind, decimals, default_confirmations, created_at, updated_at) VALUES ('alipay-cny', 'alipay', 'CNY', 'CNY', 'fiat', 2, 1, 1, 1)",
+		),
+		db.prepare(
+			"INSERT INTO payment_ingresses (id, rail_code, name, type, endpoint, provider_environment, provider_product, priority, enabled, health_status, created_at, updated_at) VALUES ('connection-alipay', 'alipay', 'Alipay', 'provider', 'https://openapi.alipay.com', 'production', 'website', 1, 1, 'unknown', 1, 1)",
+		),
+		db.prepare(
+			"INSERT INTO receiving_methods (id, name, rail_code, target_type, target_value, normalized_target_value, enabled, created_at, updated_at) VALUES ('receiving-alipay', 'Alipay account', 'alipay', 'provider', '2014072300007148', '2014072300007148', 1, 1, 1)",
+		),
+		...(["a", "b"] as const).map((suffix) =>
+			db.prepare(
+				`INSERT INTO orders (id, external_order_id, status, amount_minor, currency, currency_decimals, received_amount_units, expires_at, version, created_at, updated_at) VALUES ('order-alipay-${suffix}', 'merchant-alipay-${suffix}', 'pending', '1250', 'CNY', 2, '0', 2000, 0, 1, 1)`,
 			),
 		),
 	]);
