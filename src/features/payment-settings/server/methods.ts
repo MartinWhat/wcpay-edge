@@ -223,9 +223,13 @@ export const createReceivingMethodFn = createServerFn({ method: "POST" })
 		if (
 			await context.db
 				.prepare(
-					"SELECT 1 AS value FROM receiving_methods WHERE rail_code = ? AND normalized_target_value = ? LIMIT 1",
+					`SELECT 1 AS value FROM receiving_methods
+					 WHERE rail_code = ? AND normalized_target_value = ?
+					 AND (rail_code != 'alipay' OR
+					  COALESCE(json_extract(target_metadata, '$.product'), 'website') = ?)
+					 LIMIT 1`,
 				)
-				.bind(first.code, target.value)
+				.bind(first.code, target.value, alipayProduct ?? "website")
 				.first<{ value: number }>()
 		)
 			throw paymentSettingsError("receiving_method_target_conflict");
@@ -349,7 +353,8 @@ export const updateReceivingMethodFn = createServerFn({ method: "POST" })
 		);
 		const current = await context.db
 			.prepare(
-				`SELECT name, rail_code, target_value, target_metadata,
+				`SELECT name, rail_code, target_value, normalized_target_value,
+				 target_metadata,
 				 min_amount_minor, max_amount_minor
 				 FROM receiving_methods WHERE id = ?`,
 			)
@@ -358,6 +363,7 @@ export const updateReceivingMethodFn = createServerFn({ method: "POST" })
 				name: string;
 				rail_code: string;
 				target_value: string;
+				normalized_target_value: string;
 				target_metadata: string | null;
 				min_amount_minor: string | null;
 				max_amount_minor: string | null;
@@ -374,6 +380,19 @@ export const updateReceivingMethodFn = createServerFn({ method: "POST" })
 				metadata.product === "face_to_face" ? "face_to_face" : "website";
 			productChanged = previousAlipayProduct !== data.alipayProduct;
 			if (productChanged) {
+				if (
+					await context.db
+						.prepare(
+							`SELECT 1 AS value FROM receiving_methods
+							 WHERE id != ? AND rail_code = 'alipay'
+							 AND normalized_target_value = ?
+							 AND COALESCE(json_extract(target_metadata, '$.product'), 'website') = ?
+							 LIMIT 1`,
+						)
+						.bind(data.id, current.normalized_target_value, data.alipayProduct)
+						.first<{ value: number }>()
+				)
+					throw paymentSettingsError("receiving_method_target_conflict");
 				if (
 					!(await hasConfiguredAlipayConnection(
 						context.db,

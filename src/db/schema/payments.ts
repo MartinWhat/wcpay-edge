@@ -219,6 +219,11 @@ export const receivingMethods = sqliteTable(
 		uniqueIndex("receiving_methods_rail_target_uidx").on(
 			table.railCode,
 			table.normalizedTargetValue,
+			sql`CASE
+				WHEN ${table.railCode} = 'alipay' THEN
+					COALESCE(json_extract(${table.targetMetadata}, '$.product'), 'website')
+				ELSE ''
+			END`,
 		),
 		index("receiving_methods_enabled_sort_idx").on(
 			table.enabled,

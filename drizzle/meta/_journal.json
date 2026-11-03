@@ -99,6 +99,13 @@
       "when": 1793530051788,
       "tag": "0013_nasty_loners",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1793688650474,
+      "tag": "0014_alipay_product_specific_receiving_methods",
+      "breakpoints": true
     }
   ]
 }
