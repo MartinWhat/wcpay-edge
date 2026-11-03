@@ -888,7 +888,7 @@
   "payment_settings_error_connection_configuration": "テストする前に接続設定を完了してください",
   "payment_settings_error_method_not_found": "選択した支払い方法の一部が存在しません",
   "payment_settings_error_mixed_rail": "選択する通貨は同じネットワークまたはプロバイダーに属している必要があります",
-  "payment_settings_error_receiving_method_alipay_connection_required": "この App ID に対応する Alipay 接続を設定して有効にしてください",
+  "payment_settings_error_receiving_method_alipay_connection_required": "この App ID と選択した製品に対応する Alipay 接続を設定して有効にしてください",
   "payment_settings_error_receiving_method_target_conflict": "この受取先はすでに設定されています。既存の受取方法を編集してください",
   "payment_settings_error_receiving_method_not_found": "受取方法が見つかりません",
   "payment_settings_error_invalid_limits": "最小金額を最大金額より大きくすることはできません",

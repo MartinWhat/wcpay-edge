@@ -31,6 +31,10 @@ export const listReceivingMethodsFn = createServerFn({ method: "GET" }).handler(
 				 rm.min_amount_minor, rm.max_amount_minor, pa.decimals,
 				 rm.sort_order, pa.code AS asset_code,
 				 rm.rail_code, rm.target_type, rm.target_value,
+				 CASE WHEN rm.rail_code = 'alipay' THEN
+				  CASE json_extract(rm.target_metadata, '$.product')
+				   WHEN 'face_to_face' THEN 'face_to_face' ELSE 'website' END
+				  ELSE NULL END AS alipay_product,
 				 pr.kind AS rail_kind,
 				 pr.name AS rail_name
 				 FROM receiving_methods rm
@@ -54,6 +58,7 @@ export const listReceivingMethodsFn = createServerFn({ method: "GET" }).handler(
 				rail_code: string;
 				target_type: "address" | "account" | "provider";
 				target_value: string;
+				alipay_product: "website" | "face_to_face" | null;
 				rail_kind: "chain" | "exchange" | "wallet" | "fiat";
 				rail_name: string;
 			}>();
@@ -158,6 +163,7 @@ const createReceivingMethodInput = z.object({
 		.trim()
 		.regex(/^\d+(?:\.\d+)?$/)
 		.optional(),
+	alipayProduct: z.enum(["website", "face_to_face"]).optional(),
 });
 
 export const createReceivingMethodFn = createServerFn({ method: "POST" })
@@ -194,12 +200,22 @@ export const createReceivingMethodFn = createServerFn({ method: "POST" })
 			)
 		)
 			throw paymentSettingsError("receiving_method_mixed_rail");
-		const target = receivingTarget(first.kind, first.code, data.configuration);
+		if (data.alipayProduct && first.code !== "alipay")
+			throw paymentSettingsError("receiving_method_configuration_required");
+		const alipayProduct =
+			first.code === "alipay" ? (data.alipayProduct ?? "website") : undefined;
+		const target = receivingTarget(
+			first.kind,
+			first.code,
+			data.configuration,
+			alipayProduct,
+		);
 		if (
 			first.code === "alipay" &&
 			!(await hasConfiguredAlipayConnection(
 				context.db,
 				target.value,
+				alipayProduct ?? "website",
 				context.runtime.integrationConfigSecret,
 			))
 		)
@@ -288,6 +304,7 @@ export const createReceivingMethodFn = createServerFn({ method: "POST" })
 							railCode: first.code,
 							paymentMethodIds: methods.results.map((method) => method.id),
 							assetCodes: methods.results.map((method) => method.asset_code),
+							alipayProduct,
 							minAmountMinor: limits.min?.toString() ?? null,
 							maxAmountMinor: limits.max?.toString() ?? null,
 							targetType: target.type,
@@ -306,9 +323,21 @@ export const createReceivingMethodFn = createServerFn({ method: "POST" })
 		return { id };
 	});
 
-const updateReceivingMethodInput = createReceivingMethodInput
-	.pick({ name: true, minAmount: true, maxAmount: true })
-	.extend({ id: z.string().trim().min(1).max(100) });
+const updateReceivingMethodInput = z.object({
+	id: z.string().trim().min(1).max(100),
+	name: z.string().trim().min(1).max(100),
+	minAmount: z
+		.string()
+		.trim()
+		.regex(/^\d+(?:\.\d+)?$/)
+		.optional(),
+	maxAmount: z
+		.string()
+		.trim()
+		.regex(/^\d+(?:\.\d+)?$/)
+		.optional(),
+	alipayProduct: z.enum(["website", "face_to_face"]).optional(),
+});
 
 export const updateReceivingMethodFn = createServerFn({ method: "POST" })
 	.validator((input: z.input<typeof updateReceivingMethodInput>) =>
@@ -320,16 +349,49 @@ export const updateReceivingMethodFn = createServerFn({ method: "POST" })
 		);
 		const current = await context.db
 			.prepare(
-				`SELECT name, min_amount_minor, max_amount_minor
+				`SELECT name, rail_code, target_value, target_metadata,
+				 min_amount_minor, max_amount_minor
 				 FROM receiving_methods WHERE id = ?`,
 			)
 			.bind(data.id)
 			.first<{
 				name: string;
+				rail_code: string;
+				target_value: string;
+				target_metadata: string | null;
 				min_amount_minor: string | null;
 				max_amount_minor: string | null;
 			}>();
 		if (!current) throw paymentSettingsError("receiving_method_not_found");
+		if (data.alipayProduct && current.rail_code !== "alipay")
+			throw paymentSettingsError("receiving_method_configuration_required");
+		let targetMetadata = current.target_metadata;
+		let previousAlipayProduct: "website" | "face_to_face" | undefined;
+		let productChanged = false;
+		if (data.alipayProduct && current.rail_code === "alipay") {
+			const metadata = parseReceivingTargetMetadata(current.target_metadata);
+			previousAlipayProduct =
+				metadata.product === "face_to_face" ? "face_to_face" : "website";
+			productChanged = previousAlipayProduct !== data.alipayProduct;
+			if (productChanged) {
+				if (
+					!(await hasConfiguredAlipayConnection(
+						context.db,
+						current.target_value,
+						data.alipayProduct,
+						context.runtime.integrationConfigSecret,
+					))
+				)
+					throw paymentSettingsError(
+						"receiving_method_alipay_connection_required",
+					);
+				targetMetadata = JSON.stringify({
+					...metadata,
+					appId: current.target_value,
+					product: data.alipayProduct,
+				});
+			}
+		}
 		const limits = parseReceivingUsdLimits(data.minAmount, data.maxAmount);
 		const minAmountMinor = limits.min?.toString() ?? null;
 		const maxAmountMinor = limits.max?.toString() ?? null;
@@ -340,10 +402,17 @@ export const updateReceivingMethodFn = createServerFn({ method: "POST" })
 		await context.db.batch([
 			context.db
 				.prepare(
-					`UPDATE receiving_methods SET name = ?, min_amount_minor = ?,
-					 max_amount_minor = ?, updated_at = ? WHERE id = ?`,
+					`UPDATE receiving_methods SET name = ?, target_metadata = ?,
+				 min_amount_minor = ?, max_amount_minor = ?, updated_at = ? WHERE id = ?`,
 				)
-				.bind(data.name, minAmountMinor, maxAmountMinor, now, data.id),
+				.bind(
+					data.name,
+					targetMetadata,
+					minAmountMinor,
+					maxAmountMinor,
+					now,
+					data.id,
+				),
 			context.db
 				.prepare(
 					`INSERT INTO audit_logs
@@ -360,19 +429,22 @@ export const updateReceivingMethodFn = createServerFn({ method: "POST" })
 					context.request.headers.get("cf-connecting-ip"),
 					JSON.stringify({
 						name: current.name,
+						alipayProduct: previousAlipayProduct,
 						minAmountMinor: current.min_amount_minor,
 						maxAmountMinor: current.max_amount_minor,
 					}),
 					JSON.stringify({
 						name: data.name,
+						alipayProduct: data.alipayProduct,
 						minAmountMinor,
 						maxAmountMinor,
 						limitsChanged,
+						productChanged,
 					}),
 					now,
 				),
 		]);
-		return { id: data.id, limitsChanged };
+		return { id: data.id, limitsChanged, productChanged };
 	});
 
 export const deleteReceivingMethodFn = createServerFn({ method: "POST" })
@@ -394,13 +466,19 @@ function receivingTarget(
 	kind: "chain" | "exchange" | "wallet" | "fiat",
 	railCode: string,
 	configuration: Record<string, string>,
+	alipayProduct?: "website" | "face_to_face",
 ) {
 	if (kind !== "chain") {
 		const parsed = parseReceivingProviderConfiguration(railCode, configuration);
 		return {
 			type: parsed.targetType,
 			value: parsed.targetValue,
-			metadata: { [parsed.targetField]: parsed.targetValue },
+			metadata: {
+				[parsed.targetField]: parsed.targetValue,
+				...(railCode === "alipay" && alipayProduct
+					? { product: alipayProduct }
+					: {}),
+			},
 			credentials: parsed.credentials,
 		};
 	}
@@ -418,6 +496,7 @@ function receivingTarget(
 async function hasConfiguredAlipayConnection(
 	db: D1Database,
 	targetValue: string,
+	product: "website" | "face_to_face",
 	integrationConfigSecret: string,
 ) {
 	const connections = await db
@@ -426,8 +505,10 @@ async function hasConfiguredAlipayConnection(
 			 FROM payment_ingresses connection
 			 JOIN payment_ingress_credentials credential
 			   ON credential.payment_ingress_id = connection.id
-			 WHERE connection.rail_code = 'alipay' AND connection.enabled = 1`,
+			 WHERE connection.rail_code = 'alipay' AND connection.enabled = 1
+			 AND connection.provider_product = ?`,
 		)
+		.bind(product)
 		.all<{ config_encrypted: string }>();
 	for (const connection of connections.results) {
 		try {
@@ -449,6 +530,23 @@ async function hasConfiguredAlipayConnection(
 		}
 	}
 	return false;
+}
+
+function parseReceivingTargetMetadata(value: string | null) {
+	if (value === null) return {};
+	try {
+		const parsed: unknown = JSON.parse(value);
+		if (
+			parsed &&
+			typeof parsed === "object" &&
+			!Array.isArray(parsed) &&
+			Object.values(parsed).every((item) => typeof item === "string")
+		)
+			return parsed as Record<string, string>;
+	} catch {
+		// Stored target metadata must be valid JSON before it can be changed.
+	}
+	throw paymentSettingsError("receiving_method_configuration_required");
 }
 
 export const setReceivingMethodEnabledFn = createServerFn({ method: "POST" })

@@ -121,11 +121,17 @@ export async function listCheckoutPaymentOptions(
 				FROM payment_ingresses
 				WHERE rail_code = 'alipay' AND enabled = 1
 			 ) alipay_route ON a.rail_code = 'alipay'
+			 AND alipay_route.provider_product = CASE
+			  WHEN json_extract(rm.target_metadata, '$.product') = 'face_to_face'
+			  THEN 'face_to_face' ELSE 'website' END
 			 WHERE rm.enabled = 1
 			 AND rm.target_value != ''
 			 AND (a.rail_code != 'alipay' OR ? = 'CNY')
 			 AND EXISTS (SELECT 1 FROM payment_ingresses pc WHERE pc.rail_code = a.rail_code
 			  AND pc.enabled = 1
+			  AND (a.rail_code != 'alipay' OR pc.provider_product = CASE
+			   WHEN json_extract(rm.target_metadata, '$.product') = 'face_to_face'
+			   THEN 'face_to_face' ELSE 'website' END)
 			  AND (pr.kind IN ('exchange', 'wallet', 'fiat') OR pc.health_status = 'healthy'))
 			 ORDER BY rm.sort_order, rm.name`,
 		)
@@ -255,6 +261,10 @@ export async function selectCheckoutPaymentOption(
 		.prepare(
 			`SELECT rm.id, a.id AS payment_method_id, a.code, a.decimals,
 		 rm.min_amount_minor, rm.max_amount_minor,
+		 CASE WHEN a.rail_code = 'alipay' THEN
+		  CASE json_extract(rm.target_metadata, '$.product')
+		   WHEN 'face_to_face' THEN 'face_to_face' ELSE 'website' END
+		  ELSE NULL END AS alipay_product,
 		 a.rail_code AS network
 		 FROM receiving_methods rm
 		 JOIN receiving_method_assets link ON link.receiving_method_id = rm.id
@@ -270,6 +280,7 @@ export async function selectCheckoutPaymentOption(
 			network: string;
 			min_amount_minor: string | null;
 			max_amount_minor: string | null;
+			alipay_product: "website" | "face_to_face" | null;
 		}>();
 	if (!method) throw new PaymentOptionError("payment_option_unavailable", 409);
 	let alipayRoute:
@@ -282,7 +293,8 @@ export async function selectCheckoutPaymentOption(
 		if (
 			order.currency !== "CNY" ||
 			!data.alipayEnvironment ||
-			!data.alipayProduct
+			!data.alipayProduct ||
+			data.alipayProduct !== method.alipay_product
 		)
 			throw new PaymentOptionError("payment_option_unavailable", 409);
 		alipayRoute = {

@@ -11,7 +11,7 @@ import {
 import { ProButton } from "#/components/pro/base/button";
 import { Input } from "#/components/pro/base/fields/input";
 import { Select } from "#/components/pro/base/fields/select";
-import { ModalForm } from "#/components/pro/form";
+import { ModalForm, type ProSchemaValueField } from "#/components/pro/form";
 import { ProTable } from "#/components/pro/table";
 import { Badge } from "#/components/ui/badge";
 import {
@@ -141,6 +141,13 @@ export function ReceivingMethodsPage() {
 							symbol={asset.asset_code}
 						/>
 					))}
+					{row.original.alipay_product ? (
+						<Badge variant="outline">
+							{row.original.alipay_product === "face_to_face"
+								? m.payment_alipay_face_to_face()
+								: m.payment_alipay_website()}
+						</Badge>
+					) : null}
 				</div>
 			),
 		},
@@ -226,6 +233,27 @@ export function ReceivingMethodsPage() {
 				description={m.receiving_methods_description()}
 				schema={[
 					{ name: "name", label: m.common_name(), required: true },
+					...(editingMethod?.rail_code === "alipay"
+						? [
+								{
+									name: "alipayProduct",
+									label: m.payment_alipay_product(),
+									required: true,
+									render: (field: ProSchemaValueField) => (
+										<Select
+											ariaLabel={m.payment_alipay_product()}
+											value={String(field.value ?? "website")}
+											onChange={(value) =>
+												field.onChange(
+													typeof value === "string" ? value : "website",
+												)
+											}
+											options={alipayProductOptions()}
+										/>
+									),
+								},
+							]
+						: []),
 					{
 						name: "minAmount",
 						label: `${m.pro_field_minimumValue()} (USD)`,
@@ -239,6 +267,7 @@ export function ReceivingMethodsPage() {
 					editingMethod
 						? {
 								name: editingMethod.name,
+								alipayProduct: editingMethod.alipay_product ?? "website",
 								minAmount: editingMethod.min_amount ?? "",
 								maxAmount: editingMethod.max_amount ?? "",
 							}
@@ -250,6 +279,14 @@ export function ReceivingMethodsPage() {
 						data: {
 							id: editingMethod.id,
 							name: String(values.name ?? ""),
+							...(editingMethod.rail_code === "alipay"
+								? {
+										alipayProduct:
+											values.alipayProduct === "face_to_face"
+												? "face_to_face"
+												: "website",
+									}
+								: {}),
 							minAmount: optionalString(values.minAmount),
 							maxAmount: optionalString(values.maxAmount),
 						},
@@ -322,6 +359,9 @@ function CreateReceivingMethodForm({
 						name: String(values.name ?? ""),
 						paymentMethodIds: selection.paymentMethodIds,
 						configuration: selection.configuration,
+						...(selection.alipayProduct
+							? { alipayProduct: selection.alipayProduct }
+							: {}),
 						minAmount: selection.minAmount,
 						maxAmount: selection.maxAmount,
 					},
@@ -334,7 +374,7 @@ function CreateReceivingMethodForm({
 	);
 }
 
-function ReceivingConfigurationFields({
+export function ReceivingConfigurationFields({
 	methods,
 	onChange,
 }: {
@@ -357,6 +397,9 @@ function ReceivingConfigurationFields({
 	const [configuration, setConfiguration] = useState<Record<string, string>>(
 		{},
 	);
+	const [alipayProduct, setAlipayProduct] = useState<
+		"website" | "face_to_face"
+	>("website");
 	const [minAmount, setMinAmount] = useState("");
 	const [maxAmount, setMaxAmount] = useState("");
 	const available = methods.filter((method) => method.rail_kind === kind);
@@ -392,11 +435,15 @@ function ReceivingConfigurationFields({
 		nextConfiguration: Record<string, string>,
 		nextMinAmount = minAmount,
 		nextMaxAmount = maxAmount,
+		nextAlipayProduct = alipayProduct,
 	) => {
 		onChange(
 			JSON.stringify({
 				paymentMethodIds: nextMethodIds,
 				configuration: nextConfiguration,
+				...(railCode === "alipay" && nextMethodIds.length
+					? { alipayProduct: nextAlipayProduct }
+					: {}),
 				minAmount: nextMinAmount,
 				maxAmount: nextMaxAmount,
 			}),
@@ -415,6 +462,7 @@ function ReceivingConfigurationFields({
 						setRailCode("");
 						setMethodIds([]);
 						setConfiguration({});
+						setAlipayProduct("website");
 						setMinAmount("");
 						setMaxAmount("");
 						onChange("");
@@ -436,6 +484,7 @@ function ReceivingConfigurationFields({
 						setRailCode(String(value ?? ""));
 						setMethodIds([]);
 						setConfiguration({});
+						setAlipayProduct("website");
 						setMinAmount("");
 						setMaxAmount("");
 						onChange("");
@@ -453,9 +502,10 @@ function ReceivingConfigurationFields({
 						const next = Array.isArray(value) ? value.map(String) : [];
 						setMethodIds(next);
 						setConfiguration({});
+						setAlipayProduct("website");
 						setMinAmount("");
 						setMaxAmount("");
-						update(next, {}, "", "");
+						update(next, {}, "", "", "website");
 					}}
 					disabled={!railCode}
 					options={assets.map((method) => ({
@@ -471,6 +521,22 @@ function ReceivingConfigurationFields({
 					}))}
 				/>
 			</div>
+			{railCode === "alipay" && methodIds.length ? (
+				<div className="grid gap-1.5 text-sm font-medium">
+					<span>{m.payment_alipay_product()}</span>
+					<Select
+						ariaLabel={m.payment_alipay_product()}
+						value={alipayProduct}
+						onChange={(value) => {
+							const next =
+								value === "face_to_face" ? "face_to_face" : "website";
+							setAlipayProduct(next);
+							update(methodIds, configuration, minAmount, maxAmount, next);
+						}}
+						options={alipayProductOptions()}
+					/>
+				</div>
+			) : null}
 			{methodIds.length
 				? fields.map((field) => (
 						<label
@@ -664,6 +730,7 @@ function parsePaymentConfiguration(value: string) {
 		configuration?: unknown;
 		minAmount?: unknown;
 		maxAmount?: unknown;
+		alipayProduct?: unknown;
 	};
 	if (
 		!Array.isArray(parsed.paymentMethodIds) ||
@@ -674,9 +741,22 @@ function parsePaymentConfiguration(value: string) {
 		Array.isArray(parsed.configuration)
 	)
 		throw paymentSettingsError("receiving_method_configuration_required");
+	if (
+		parsed.alipayProduct !== undefined &&
+		parsed.alipayProduct !== "website" &&
+		parsed.alipayProduct !== "face_to_face"
+	)
+		throw paymentSettingsError("receiving_method_configuration_required");
+	const alipayProduct: "website" | "face_to_face" | undefined =
+		parsed.alipayProduct === "face_to_face"
+			? "face_to_face"
+			: parsed.alipayProduct === "website"
+				? "website"
+				: undefined;
 	return {
 		paymentMethodIds: parsed.paymentMethodIds,
 		configuration: parsed.configuration as Record<string, string>,
+		...(alipayProduct ? { alipayProduct } : {}),
 		minAmount:
 			typeof parsed.minAmount === "string" && parsed.minAmount.trim()
 				? parsed.minAmount.trim()
@@ -686,6 +766,13 @@ function parsePaymentConfiguration(value: string) {
 				? parsed.maxAmount.trim()
 				: undefined,
 	};
+}
+
+function alipayProductOptions() {
+	return [
+		{ label: m.payment_alipay_website(), value: "website" },
+		{ label: m.payment_alipay_face_to_face(), value: "face_to_face" },
+	];
 }
 
 function optionalString(value: unknown) {

@@ -886,7 +886,7 @@
 	"payment_settings_error_connection_configuration": "Complete the connection configuration before testing it",
 	"payment_settings_error_method_not_found": "One or more selected payment methods no longer exist",
 	"payment_settings_error_mixed_rail": "Selected currencies must use the same network or provider",
-	"payment_settings_error_receiving_method_alipay_connection_required": "Configure and enable the Alipay connection for this App ID first",
+	"payment_settings_error_receiving_method_alipay_connection_required": "Configure and enable an Alipay connection for this App ID and product first",
 	"payment_settings_error_receiving_method_target_conflict": "This receiving target is already configured. Edit the existing receiving method instead",
 	"payment_settings_error_receiving_method_not_found": "Receiving method not found",
 	"payment_settings_error_invalid_limits": "The minimum amount cannot exceed the maximum amount",

@@ -48,6 +48,7 @@ describe("Alipay order creation", () => {
 	afterEach(() => vi.unstubAllGlobals());
 
 	it("keeps CNY minor units without an exchange quote and stores the signed payment URL", async () => {
+		await setReceivingMethodProduct(db, "website");
 		const order = await createOrder(
 			db,
 			{
@@ -83,6 +84,21 @@ describe("Alipay order creation", () => {
 	});
 
 	it("routes sandbox face-to-face payments and stores QR separately from the target snapshot", async () => {
+		await setReceivingMethodProduct(db, "face_to_face");
+		await expect(
+			createOrder(
+				db,
+				{
+					externalOrderId: "alipay-sandbox-website-not-enabled",
+					amount: "1.01",
+					currency: "CNY",
+					paymentAsset: "CNY",
+					paymentNetwork: "alipay",
+					alipayProduct: "website",
+				},
+				"https://pay.example.test",
+			),
+		).rejects.toMatchObject({ code: "receiving_method_not_found" });
 		const qrCode = "https://qr.alipay.com/sandbox-face-to-face";
 		const fetchMock = vi.fn(
 			async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -156,7 +172,8 @@ describe("Alipay order creation", () => {
 		});
 	});
 
-	it("offers configured Alipay products and initializes the selected checkout route", async () => {
+	it("offers only the selected Alipay product and initializes that checkout route", async () => {
+		await setReceivingMethodProduct(db, "face_to_face");
 		const order = await createOrder(
 			db,
 			{
@@ -171,10 +188,6 @@ describe("Alipay order creation", () => {
 			expect.arrayContaining([
 				expect.objectContaining({
 					alipayEnvironment: "production",
-					alipayProduct: "website",
-				}),
-				expect.objectContaining({
-					alipayEnvironment: "production",
 					alipayProduct: "face_to_face",
 				}),
 				expect.objectContaining({
@@ -183,6 +196,18 @@ describe("Alipay order creation", () => {
 				}),
 			]),
 		);
+		expect(
+			listed?.options.some((option) => option.alipayProduct === "website"),
+		).toBe(false);
+		await expect(
+			selectCheckoutPaymentOption(db, {
+				orderId: order.orderId,
+				receivingMethodId: "receiving-alipay",
+				paymentMethodId: "alipay-cny",
+				alipayEnvironment: "sandbox",
+				alipayProduct: "website",
+			}),
+		).rejects.toMatchObject({ code: "payment_option_unavailable" });
 
 		const qrCode = "https://qr.alipay.com/checkout-sandbox-face-to-face";
 		const fetchMock = vi.fn(
@@ -356,4 +381,14 @@ async function seed(db: D1Database) {
 			)
 			.bind(now, now),
 	]);
+}
+
+async function setReceivingMethodProduct(
+	db: D1Database,
+	product: "website" | "face_to_face",
+) {
+	await db
+		.prepare("UPDATE receiving_methods SET target_metadata = ? WHERE id = ?")
+		.bind(JSON.stringify({ appId, product }), "receiving-alipay")
+		.run();
 }

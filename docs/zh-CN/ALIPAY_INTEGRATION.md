@@ -84,11 +84,13 @@ https://pay.example.com/api/providers/alipay/notify
 2. 平台选择“支付宝”。
 3. 币种选择 CNY。
 4. 填写已启用支付宝连接使用的 App ID。
-5. 按需设置 USD 最低和最高订单金额。
-6. 创建后确认收款方式已启用。
+5. 选择“电脑网站支付”或“当面付”。
+6. 按需设置 USD 最低和最高订单金额。
+7. 创建后确认收款方式已启用。
 
-收款方式不重复保存私钥或支付宝公钥。修改连接中的密钥后，新的支付请求和
-后续支付宝通知直接使用连接中的最新配置。
+所选产品必须有使用同一 App ID 的已启用支付宝连接。收款方式不重复保存私钥或
+支付宝公钥。修改连接中的密钥后，新的支付请求和后续支付宝通知直接使用连接中的
+最新配置。
 
 ### 2.5 创建商户 API 凭证
 
@@ -184,7 +186,7 @@ Content-Type: application/json
 | `token` | 支付宝必填 | 固定为 `CNY` |
 | `network` | 支付宝必填 | 固定为 `alipay` |
 | `alipay_environment` | 建议 | `production` 或 `sandbox`；省略时默认生产 |
-| `alipay_product` | 建议 | `website` 或 `face_to_face`；省略时默认电脑网站支付 |
+| `alipay_product` | 建议 | `website` 或 `face_to_face`；必须与收款方式选择一致，省略时使用收款方式产品 |
 | `redirect_url` | 否 | 用户支付后的商户 HTTPS 返回页 |
 | `name` | 否 | 订单标题，提交支付宝时截断到 256 字符 |
 | `signature` | 是 | GMPay HMAC-SHA256 签名 |

@@ -138,9 +138,17 @@ async function createOrderRecord(
 			 JOIN payment_assets pa ON pa.id = link.payment_asset_id
 			 WHERE pa.code = ?
 			 AND pa.rail_code = ?
+			 AND (pa.rail_code != 'alipay' OR ? IS NULL OR CASE
+			  WHEN json_extract(rm.target_metadata, '$.product') = 'face_to_face'
+			  THEN 'face_to_face' ELSE 'website' END = ?)
 			 ORDER BY rm.sort_order, rm.created_at, rm.id`,
 		)
-		.bind(input.paymentAsset, input.paymentNetwork)
+		.bind(
+			input.paymentAsset,
+			input.paymentNetwork,
+			input.alipayProduct ?? null,
+			input.alipayProduct ?? "website",
+		)
 		.all<{ id: string }>();
 	for (const method of methods.results) {
 		const readiness = await checkReceivingMethodReadiness(db, method.id);
@@ -183,6 +191,10 @@ async function createOrderFromReceivingMethod(
 	const methods = await db
 		.prepare(
 			`SELECT rm.id, rm.target_value, rm.min_amount_minor, rm.max_amount_minor,
+			 CASE WHEN rm.rail_code = 'alipay' THEN
+			  CASE json_extract(rm.target_metadata, '$.product')
+			   WHEN 'face_to_face' THEN 'face_to_face' ELSE 'website' END
+			  ELSE NULL END AS alipay_product,
 			 pa.id AS payment_method_id,
 			 pa.code, pa.decimals,
 			 pa.rail_code
@@ -195,6 +207,7 @@ async function createOrderFromReceivingMethod(
 		.all<{
 			id: string;
 			target_value: string;
+			alipay_product: "website" | "face_to_face" | null;
 			min_amount_minor: string | null;
 			max_amount_minor: string | null;
 			payment_method_id: string;
@@ -219,6 +232,17 @@ async function createOrderFromReceivingMethod(
 			methods.results.length > 1
 				? "Select a currency supported by this receiving method"
 				: "Receiving method does not exist",
+			422,
+		);
+	const configuredAlipayProduct = method.alipay_product ?? "website";
+	if (
+		method.rail_code === "alipay" &&
+		input.alipayProduct !== undefined &&
+		input.alipayProduct !== configuredAlipayProduct
+	)
+		throw new OrderServiceError(
+			"receiving_method_not_ready",
+			"The Alipay product is not enabled for this receiving method",
 			422,
 		);
 	const paymentInput = {
@@ -263,7 +287,10 @@ async function createOrderFromReceivingMethod(
 			paymentMethodId: method.payment_method_id,
 			expectedAmountUnits,
 			alipayEnvironment: input.alipayEnvironment,
-			alipayProduct: input.alipayProduct,
+			alipayProduct:
+				method.rail_code === "alipay"
+					? (input.alipayProduct ?? configuredAlipayProduct)
+					: input.alipayProduct,
 			...(orderAmountUsdMinor ? { orderAmountUsdMinor } : {}),
 			decimals: method.decimals,
 			expiresAt,

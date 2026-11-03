@@ -81,11 +81,13 @@ Create a receiving method with:
 - provider: Alipay;
 - currency: CNY;
 - the App ID of an enabled Alipay connection;
+- product: Website payment or face-to-face payment;
 - optional USD minimum and maximum order limits.
 
 The receiving method stores no second copy of the keys. It selects the business
-App ID and controls checkout exposure. Connection changes take effect for new
-payments and callback verification without duplicate receiving-method secrets.
+App ID and product and controls checkout exposure. The selected product must
+have an enabled connection for that App ID. Connection changes take effect for
+new payments and callback verification without duplicate receiving-method secrets.
 
 ### 2.5 Create a merchant API credential
 
@@ -168,7 +170,7 @@ Content-Type: application/json
 | `token` | Alipay | `CNY` |
 | `network` | Alipay | `alipay` |
 | `alipay_environment` | Recommended | `production` or `sandbox`; defaults to production |
-| `alipay_product` | Recommended | `website` or `face_to_face`; defaults to website |
+| `alipay_product` | Recommended | `website` or `face_to_face`; must match the receiving method and defaults to its selected product |
 | `redirect_url` | No | Merchant HTTPS return page after payment |
 | `name` | No | Order subject, truncated to 256 characters for Alipay |
 | `signature` | Yes | Lowercase HMAC-SHA256 signature |
