@@ -73,7 +73,9 @@ controlled separately by ready receiving methods. A receiving method must have
 the required public connection or read-only account configuration and pass its
 availability checks before it can be offered to a payer.
 
-See [Payment methods and receiving methods](docs/en-US/PAYMENT_METHODS.md) for
+See the [Alipay external integration guide](docs/en-US/ALIPAY_INTEGRATION.md)
+for sandbox setup, order creation, checkout, and callbacks. See
+[Payment methods and receiving methods](docs/en-US/PAYMENT_METHODS.md) for
 provider requirements, limits, retry behavior, and the production checklist.
 
 ## Architecture
@@ -421,6 +423,7 @@ deployer-owned infrastructure during production acceptance.
 | Deployment and production sign-off | [Deployment checklist](docs/en-US/DEPLOYMENT.md) |
 | Bun backup, restore, and Cloudflare import | [Bun data operations](docs/en-US/NODE_DATA_OPERATIONS.md) |
 | Merchant requests, signatures, errors, and EPay | [Merchant API](docs/en-US/MERCHANT_API.md) |
+| Alipay configuration, checkout, and external integration | [Alipay integration guide](docs/en-US/ALIPAY_INTEGRATION.md) |
 | Provider configuration and receiving methods | [Payment methods](docs/en-US/PAYMENT_METHODS.md) |
 | Inbound endpoints and merchant delivery | [Webhooks](docs/en-US/WEBHOOKS.md) |
 | Bots, Inline orders, commands, and subscriptions | [Telegram](docs/en-US/TELEGRAM.md) |

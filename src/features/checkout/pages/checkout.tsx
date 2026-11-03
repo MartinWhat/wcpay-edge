@@ -296,6 +296,8 @@ export function CheckoutPage({
 	async function selectPaymentOption(option: {
 		receivingMethodId: string;
 		paymentMethodId: string;
+		alipayEnvironment?: "production" | "sandbox" | null;
+		alipayProduct?: "website" | "face_to_face" | null;
 	}) {
 		setSelectingOption(true);
 		try {
@@ -304,6 +306,12 @@ export function CheckoutPage({
 					orderId,
 					receivingMethodId: option.receivingMethodId,
 					paymentMethodId: option.paymentMethodId,
+					...(option.alipayEnvironment
+						? { alipayEnvironment: option.alipayEnvironment }
+						: {}),
+					...(option.alipayProduct
+						? { alipayProduct: option.alipayProduct }
+						: {}),
 				},
 			});
 			await Promise.all([pollAfterCurrent(), paymentOptionsQuery.refetch()]);

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { orderIdPathSchema } from "#/features/orders/schema";
+import { initializeAlipayOrder } from "#/features/orders/server/alipay-hosted";
 import { initializeOkPayOrder } from "#/features/orders/server/okpay-hosted";
 import { checkReceivingMethodReadiness } from "#/features/payment-settings/server/check-method-readiness";
 import {
@@ -17,11 +18,21 @@ import { minorToDecimal } from "#/lib/units";
 import { loadOperationalSettings } from "#/server/operational-settings";
 import type { ReadDatabase } from "#/server/read-replica";
 
-export const paymentOptionInput = z.object({
-	orderId: orderIdPathSchema,
-	receivingMethodId: z.string().trim().min(1).max(100),
-	paymentMethodId: z.string().trim().min(1).max(100),
-});
+export const paymentOptionInput = z
+	.object({
+		orderId: orderIdPathSchema,
+		receivingMethodId: z.string().trim().min(1).max(100),
+		paymentMethodId: z.string().trim().min(1).max(100),
+		alipayEnvironment: z.enum(["production", "sandbox"]).optional(),
+		alipayProduct: z.enum(["website", "face_to_face"]).optional(),
+	})
+	.superRefine((input, context) => {
+		if (Boolean(input.alipayEnvironment) !== Boolean(input.alipayProduct))
+			context.addIssue({
+				code: "custom",
+				message: "Alipay environment and product must be provided together",
+			});
+	});
 
 type OrderForSelection = {
 	id: string;
@@ -49,6 +60,20 @@ type OrderForSelection = {
 	pending_review_count: number;
 };
 
+type CheckoutPaymentOption = {
+	receivingMethodId: string;
+	receivingMethodName: string;
+	paymentMethodId: string;
+	asset: string;
+	network: string;
+	networkName: string;
+	railKind: "chain" | "exchange" | "wallet" | "fiat" | "";
+	amount: string;
+	current: boolean;
+	alipayEnvironment?: "production" | "sandbox";
+	alipayProduct?: "website" | "face_to_face";
+};
+
 export async function listCheckoutPaymentOptions(
 	db: ReadDatabase,
 	orderId: string,
@@ -62,40 +87,49 @@ export async function listCheckoutPaymentOptions(
 			options: [],
 			unavailableReason: "test_order" as const,
 		};
-	if (order.receiving_method_id)
+	if (order.receiving_method_id) {
+		const currentOption: CheckoutPaymentOption = {
+			receivingMethodId: order.receiving_method_id,
+			receivingMethodName: order.current_receiving_method_name,
+			paymentMethodId: "",
+			asset: order.current_asset_code,
+			network: order.current_network,
+			networkName: order.current_network_name,
+			railKind: order.current_rail_kind,
+			amount: order.paymentAmount ?? "",
+			current: true,
+		};
 		return {
 			selectable: false,
-			options: [
-				{
-					receivingMethodId: order.receiving_method_id,
-					receivingMethodName: order.current_receiving_method_name,
-					paymentMethodId: "",
-					asset: order.current_asset_code,
-					network: order.current_network,
-					networkName: order.current_network_name,
-					railKind: order.current_rail_kind,
-					amount: order.paymentAmount ?? "",
-					current: true,
-				},
-			],
+			options: [currentOption],
 		};
+	}
 	const rows = await db
 		.prepare(
 			`SELECT rm.id AS receiving_method_id, rm.name AS receiving_method_name,
 			 a.id AS payment_method_id,
 			 a.code, a.decimals, rm.min_amount_minor, rm.max_amount_minor,
-			 a.rail_code AS network, pr.name AS network_name, pr.kind AS rail_kind
+			 a.rail_code AS network, pr.name AS network_name, pr.kind AS rail_kind,
+			 alipay_route.provider_environment AS alipay_environment,
+			 alipay_route.provider_product AS alipay_product
 			 FROM receiving_methods rm
 			 JOIN receiving_method_assets link ON link.receiving_method_id = rm.id
 			 JOIN payment_assets a ON a.id = link.payment_asset_id
 			 JOIN payment_rails pr ON pr.code = a.rail_code
+			 LEFT JOIN (
+				SELECT DISTINCT provider_environment, provider_product
+				FROM payment_ingresses
+				WHERE rail_code = 'alipay' AND enabled = 1
+			 ) alipay_route ON a.rail_code = 'alipay'
 			 WHERE rm.enabled = 1
 			 AND rm.target_value != ''
+			 AND (a.rail_code != 'alipay' OR ? = 'CNY')
 			 AND EXISTS (SELECT 1 FROM payment_ingresses pc WHERE pc.rail_code = a.rail_code
 			  AND pc.enabled = 1
 			  AND (pr.kind IN ('exchange', 'wallet', 'fiat') OR pc.health_status = 'healthy'))
 			 ORDER BY rm.sort_order, rm.name`,
 		)
+		.bind(order.currency)
 		.all<{
 			receiving_method_id: string;
 			receiving_method_name: string;
@@ -107,6 +141,8 @@ export async function listCheckoutPaymentOptions(
 			rail_kind: "chain" | "exchange" | "wallet" | "fiat";
 			min_amount_minor: string | null;
 			max_amount_minor: string | null;
+			alipay_environment: "production" | "sandbox" | null;
+			alipay_product: "website" | "face_to_face" | null;
 		}>();
 	const limitsRequireRate = rows.results.some(
 		(method) =>
@@ -120,7 +156,7 @@ export async function listCheckoutPaymentOptions(
 	const orderAmountUsdMinor = limitsRequireRate
 		? quoter.usdAmountMinor()
 		: null;
-	const options = [];
+	const options: CheckoutPaymentOption[] = [];
 	let quoteUnavailable = false;
 	for (const asset of rows.results) {
 		if (
@@ -150,6 +186,12 @@ export async function listCheckoutPaymentOptions(
 				railKind: asset.rail_kind,
 				amount: quote.paymentAmount,
 				current: false,
+				...(asset.alipay_environment && asset.alipay_product
+					? {
+							alipayEnvironment: asset.alipay_environment,
+							alipayProduct: asset.alipay_product,
+						}
+					: {}),
 			});
 		} catch {
 			quoteUnavailable = true;
@@ -230,6 +272,26 @@ export async function selectCheckoutPaymentOption(
 			max_amount_minor: string | null;
 		}>();
 	if (!method) throw new PaymentOptionError("payment_option_unavailable", 409);
+	let alipayRoute:
+		| {
+				environment: "production" | "sandbox";
+				product: "website" | "face_to_face";
+		  }
+		| undefined;
+	if (method.network === "alipay") {
+		if (
+			order.currency !== "CNY" ||
+			!data.alipayEnvironment ||
+			!data.alipayProduct
+		)
+			throw new PaymentOptionError("payment_option_unavailable", 409);
+		alipayRoute = {
+			environment: data.alipayEnvironment,
+			product: data.alipayProduct,
+		};
+	} else if (data.alipayEnvironment || data.alipayProduct) {
+		throw new PaymentOptionError("payment_option_unavailable", 409);
+	}
 	const quote = await quoteWithExchangeRate(db, {
 		amount: order.amount,
 		currency: order.currency,
@@ -261,6 +323,12 @@ export async function selectCheckoutPaymentOption(
 			receivingMethodId: method.id,
 			paymentMethodId: method.payment_method_id,
 			decimals: method.decimals,
+			...(alipayRoute
+				? {
+						alipayEnvironment: alipayRoute.environment,
+						alipayProduct: alipayRoute.product,
+					}
+				: {}),
 			expectedAmountUnits: decimalToUnits(
 				quote.paymentAmount,
 				method.decimals,
@@ -334,6 +402,24 @@ export async function selectCheckoutPaymentOption(
 				paymentNetwork: method.network,
 				description: order.description ?? undefined,
 				returnUrl: order.return_url ?? undefined,
+			},
+			{ deleteOrder: false },
+		);
+	}
+	if (alipayRoute) {
+		await initializeAlipayOrder(
+			db,
+			result,
+			{
+				externalOrderId: order.external_order_id,
+				amount: order.amount,
+				currency: order.currency,
+				paymentAsset: method.code,
+				paymentNetwork: method.network,
+				alipayEnvironment: alipayRoute.environment,
+				alipayProduct: alipayRoute.product,
+				...(order.description ? { description: order.description } : {}),
+				...(order.return_url ? { returnUrl: order.return_url } : {}),
 			},
 			{ deleteOrder: false },
 		);

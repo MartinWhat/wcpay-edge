@@ -9,85 +9,88 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as InstallRouteImport } from './routes/install'
-import { Route as AdminRouteRouteImport } from './routes/admin/route'
-import { Route as publicRouteRouteImport } from './routes/(public)/route'
 import { Route as authRouteRouteImport } from './routes/(auth)/route'
-import { Route as AdminIndexRouteImport } from './routes/admin/index'
-import { Route as publicIndexRouteImport } from './routes/(public)/index'
-import { Route as CheckoutOrderIdRouteImport } from './routes/checkout/$orderId'
-import { Route as ApiSiteLogoRouteImport } from './routes/api/site-logo'
-import { Route as ApiSiteBackgroundRouteImport } from './routes/api/site-background'
-import { Route as AdminPaymentsRouteImport } from './routes/admin/payments'
-import { Route as AdminPaymentReviewsRouteImport } from './routes/admin/payment-reviews'
-import { Route as AdminOrdersRouteImport } from './routes/admin/orders'
-import { Route as AdminEmailRouteImport } from './routes/admin/email'
-import { Route as AdminApiKeysRouteImport } from './routes/admin/api-keys'
-import { Route as publicStatusRouteImport } from './routes/(public)/status'
-import { Route as publicDocsRouteImport } from './routes/(public)/docs'
-import { Route as publicAssetsRouteImport } from './routes/(public)/assets'
-import { Route as errors503RouteImport } from './routes/(errors)/503'
-import { Route as errors500RouteImport } from './routes/(errors)/500'
-import { Route as errors404RouteImport } from './routes/(errors)/404'
-import { Route as errors403RouteImport } from './routes/(errors)/403'
-import { Route as errors401RouteImport } from './routes/(errors)/401'
-import { Route as authTwoFactorRouteImport } from './routes/(auth)/two-factor'
-import { Route as authSignInRouteImport } from './routes/(auth)/sign-in'
-import { Route as authResetPasswordRouteImport } from './routes/(auth)/reset-password'
+import { Route as publicRouteRouteImport } from './routes/(public)/route'
+import { Route as AdminRouteRouteImport } from './routes/admin/route'
+import { Route as InstallRouteImport } from './routes/install'
 import { Route as authForgotPasswordRouteImport } from './routes/(auth)/forgot-password'
-import { Route as AdminWebhooksRouteRouteImport } from './routes/admin/webhooks/route'
-import { Route as AdminTelegramRouteRouteImport } from './routes/admin/telegram/route'
-import { Route as AdminSettingsRouteRouteImport } from './routes/admin/settings/route'
-import { Route as AdminPaymentSettingsRouteRouteImport } from './routes/admin/payment-settings/route'
-import { Route as AdminOperationsRouteRouteImport } from './routes/admin/operations/route'
+import { Route as authResetPasswordRouteImport } from './routes/(auth)/reset-password'
+import { Route as authSignInRouteImport } from './routes/(auth)/sign-in'
+import { Route as authTwoFactorRouteImport } from './routes/(auth)/two-factor'
+import { Route as errors401RouteImport } from './routes/(errors)/401'
+import { Route as errors403RouteImport } from './routes/(errors)/403'
+import { Route as errors404RouteImport } from './routes/(errors)/404'
+import { Route as errors500RouteImport } from './routes/(errors)/500'
+import { Route as errors503RouteImport } from './routes/(errors)/503'
+import { Route as publicIndexRouteImport } from './routes/(public)/index'
+import { Route as publicAssetsRouteImport } from './routes/(public)/assets'
+import { Route as publicDocsRouteImport } from './routes/(public)/docs'
+import { Route as publicStatusRouteImport } from './routes/(public)/status'
+import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminAccessRouteRouteImport } from './routes/admin/access/route'
-import { Route as AdminWebhooksIndexRouteImport } from './routes/admin/webhooks/index'
-import { Route as AdminTelegramIndexRouteImport } from './routes/admin/telegram/index'
-import { Route as AdminSettingsIndexRouteImport } from './routes/admin/settings/index'
-import { Route as AdminReceivingMethodsIndexRouteImport } from './routes/admin/receiving-methods/index'
-import { Route as AdminPaymentSettingsIndexRouteImport } from './routes/admin/payment-settings/index'
-import { Route as AdminOperationsIndexRouteImport } from './routes/admin/operations/index'
+import { Route as AdminApiKeysRouteImport } from './routes/admin/api-keys'
+import { Route as AdminEmailRouteImport } from './routes/admin/email'
+import { Route as AdminOperationsRouteRouteImport } from './routes/admin/operations/route'
+import { Route as AdminOrdersRouteImport } from './routes/admin/orders'
+import { Route as AdminPaymentReviewsRouteImport } from './routes/admin/payment-reviews'
+import { Route as AdminPaymentSettingsRouteRouteImport } from './routes/admin/payment-settings/route'
+import { Route as AdminPaymentsRouteImport } from './routes/admin/payments'
+import { Route as AdminSettingsRouteRouteImport } from './routes/admin/settings/route'
+import { Route as AdminTelegramRouteRouteImport } from './routes/admin/telegram/route'
+import { Route as AdminWebhooksRouteRouteImport } from './routes/admin/webhooks/route'
+import { Route as ApiSiteBackgroundRouteImport } from './routes/api/site-background'
+import { Route as ApiSiteLogoRouteImport } from './routes/api/site-logo'
+import { Route as CheckoutOrderIdRouteImport } from './routes/checkout/$orderId'
 import { Route as AdminAccessIndexRouteImport } from './routes/admin/access/index'
-import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
-import { Route as AdminWebhooksRecordsRouteImport } from './routes/admin/webhooks/records'
-import { Route as AdminWebhooksProviderEventsRouteImport } from './routes/admin/webhooks/provider-events'
-import { Route as AdminWebhooksInboundRecordsRouteImport } from './routes/admin/webhooks/inbound-records'
-import { Route as AdminTelegramNotificationsRouteImport } from './routes/admin/telegram/notifications'
-import { Route as AdminTelegramCommandsRouteImport } from './routes/admin/telegram/commands'
-import { Route as AdminSettingsWebhooksRouteImport } from './routes/admin/settings/webhooks'
-import { Route as AdminSettingsSecretsRouteImport } from './routes/admin/settings/secrets'
-import { Route as AdminSettingsScanningRouteImport } from './routes/admin/settings/scanning'
-import { Route as AdminSettingsRetentionRouteImport } from './routes/admin/settings/retention'
-import { Route as AdminSettingsPaymentRouteImport } from './routes/admin/settings/payment'
-import { Route as AdminSettingsOrdersRouteImport } from './routes/admin/settings/orders'
-import { Route as AdminSettingsAuthRouteImport } from './routes/admin/settings/auth'
-import { Route as AdminSettingsAccessRouteImport } from './routes/admin/settings/access'
-import { Route as AdminPaymentSettingsRatesRouteImport } from './routes/admin/payment-settings/rates'
-import { Route as AdminPaymentSettingsIngressesRouteImport } from './routes/admin/payment-settings/ingresses'
-import { Route as AdminOperationsScheduledRouteImport } from './routes/admin/operations/scheduled'
-import { Route as AdminOperationsQueuesRouteImport } from './routes/admin/operations/queues'
-import { Route as AdminOperationsAuditLogsRouteImport } from './routes/admin/operations/audit-logs'
-import { Route as AdminAccessUsersRouteImport } from './routes/admin/access/users'
-import { Route as AdminAccessRolesRouteImport } from './routes/admin/access/roles'
-import { Route as AdminAccessPermissionBitsRouteImport } from './routes/admin/access/permission-bits'
 import { Route as AdminAccessModulesRouteImport } from './routes/admin/access/modules'
+import { Route as AdminAccessPermissionBitsRouteImport } from './routes/admin/access/permission-bits'
+import { Route as AdminAccessRolesRouteImport } from './routes/admin/access/roles'
+import { Route as AdminAccessUsersRouteImport } from './routes/admin/access/users'
+import { Route as AdminOperationsIndexRouteImport } from './routes/admin/operations/index'
+import { Route as AdminOperationsAuditLogsRouteImport } from './routes/admin/operations/audit-logs'
+import { Route as AdminOperationsQueuesRouteImport } from './routes/admin/operations/queues'
+import { Route as AdminOperationsScheduledRouteImport } from './routes/admin/operations/scheduled'
+import { Route as AdminPaymentSettingsIndexRouteImport } from './routes/admin/payment-settings/index'
+import { Route as AdminPaymentSettingsIngressesRouteImport } from './routes/admin/payment-settings/ingresses'
+import { Route as AdminPaymentSettingsRatesRouteImport } from './routes/admin/payment-settings/rates'
+import { Route as AdminReceivingMethodsIndexRouteImport } from './routes/admin/receiving-methods/index'
+import { Route as AdminSettingsIndexRouteImport } from './routes/admin/settings/index'
+import { Route as AdminSettingsAccessRouteImport } from './routes/admin/settings/access'
+import { Route as AdminSettingsAuthRouteImport } from './routes/admin/settings/auth'
+import { Route as AdminSettingsOrdersRouteImport } from './routes/admin/settings/orders'
+import { Route as AdminSettingsPaymentRouteImport } from './routes/admin/settings/payment'
+import { Route as AdminSettingsRetentionRouteImport } from './routes/admin/settings/retention'
+import { Route as AdminSettingsScanningRouteImport } from './routes/admin/settings/scanning'
+import { Route as AdminSettingsSecretsRouteImport } from './routes/admin/settings/secrets'
+import { Route as AdminSettingsWebhooksRouteImport } from './routes/admin/settings/webhooks'
+import { Route as AdminTelegramIndexRouteImport } from './routes/admin/telegram/index'
+import { Route as AdminTelegramCommandsRouteImport } from './routes/admin/telegram/commands'
+import { Route as AdminTelegramNotificationsRouteImport } from './routes/admin/telegram/notifications'
+import { Route as AdminWebhooksIndexRouteImport } from './routes/admin/webhooks/index'
+import { Route as AdminWebhooksInboundRecordsRouteImport } from './routes/admin/webhooks/inbound-records'
+import { Route as AdminWebhooksProviderEventsRouteImport } from './routes/admin/webhooks/provider-events'
+import { Route as AdminWebhooksRecordsRouteImport } from './routes/admin/webhooks/records'
+import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as AdminPaymentSettingsRatesIndexRouteImport } from './routes/admin/payment-settings/rates/index'
-import { Route as ApiTelegramBotIdWebhookRouteImport } from './routes/api/telegram/$botId/webhook'
-import { Route as ApiProvidersOkpayNotifyRouteImport } from './routes/api/providers/okpay/notify'
-import { Route as ApiProvidersAlipayNotifyRouteImport } from './routes/api/providers/alipay/notify'
-import { Route as ApiProvidersAlchemySourceIdRouteImport } from './routes/api/providers/alchemy/$sourceId'
-import { Route as ApiCheckoutOrderIdReviewRouteImport } from './routes/api/checkout/$orderId/review'
 import { Route as AdminPaymentSettingsRatesFiatRouteImport } from './routes/admin/payment-settings/rates/fiat'
-import { Route as PaymentsGmpayV1OrderQueryRouteImport } from './routes/payments/gmpay/v1/order/query'
-import { Route as PaymentsGmpayV1OrderCreateTransactionRouteImport } from './routes/payments/gmpay/v1/order/create-transaction'
+import { Route as ApiCheckoutOrderIdReviewRouteImport } from './routes/api/checkout/$orderId/review'
+import { Route as ApiProvidersAlchemySourceIdRouteImport } from './routes/api/providers/alchemy/$sourceId'
+import { Route as ApiProvidersAlipayNotifyRouteImport } from './routes/api/providers/alipay/notify'
+import { Route as ApiProvidersOkpayNotifyRouteImport } from './routes/api/providers/okpay/notify'
+import { Route as ApiTelegramBotIdWebhookRouteImport } from './routes/api/telegram/$botId/webhook'
 import { Route as ApiAdminPaymentReviewsReviewIdEvidenceRouteImport } from './routes/api/admin/payment-reviews/$reviewId/evidence'
-import { Route as PaymentsEpayV1OrderCreateTransactionSubmitDotphpRouteImport } from './routes/payments/epay/v1/order/create-transaction/submit[.]php'
-import { Route as PaymentsEpayV1OrderCreateTransactionMapiDotphpRouteImport } from './routes/payments/epay/v1/order/create-transaction/mapi[.]php'
+import { Route as PaymentsGmpayV1OrderCreateTransactionRouteImport } from './routes/payments/gmpay/v1/order/create-transaction'
+import { Route as PaymentsGmpayV1OrderQueryRouteImport } from './routes/payments/gmpay/v1/order/query'
 import { Route as PaymentsEpayV1OrderCreateTransactionApiDotphpRouteImport } from './routes/payments/epay/v1/order/create-transaction/api[.]php'
+import { Route as PaymentsEpayV1OrderCreateTransactionMapiDotphpRouteImport } from './routes/payments/epay/v1/order/create-transaction/mapi[.]php'
+import { Route as PaymentsEpayV1OrderCreateTransactionSubmitDotphpRouteImport } from './routes/payments/epay/v1/order/create-transaction/submit[.]php'
 
-const InstallRoute = InstallRouteImport.update({
-  id: '/install',
-  path: '/install',
+const authRouteRoute = authRouteRouteImport.update({
+  id: '/(auth)',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const publicRouteRoute = publicRouteRouteImport.update({
+  id: '/(public)',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRouteRoute = AdminRouteRouteImport.update({
@@ -95,112 +98,14 @@ const AdminRouteRoute = AdminRouteRouteImport.update({
   path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
-const publicRouteRoute = publicRouteRouteImport.update({
-  id: '/(public)',
+const InstallRoute = InstallRouteImport.update({
+  id: '/install',
+  path: '/install',
   getParentRoute: () => rootRouteImport,
 } as any)
-const authRouteRoute = authRouteRouteImport.update({
-  id: '/(auth)',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminIndexRoute = AdminIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AdminRouteRoute,
-} as any)
-const publicIndexRoute = publicIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => publicRouteRoute,
-} as any)
-const CheckoutOrderIdRoute = CheckoutOrderIdRouteImport.update({
-  id: '/checkout/$orderId',
-  path: '/checkout/$orderId',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiSiteLogoRoute = ApiSiteLogoRouteImport.update({
-  id: '/api/site-logo',
-  path: '/api/site-logo',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiSiteBackgroundRoute = ApiSiteBackgroundRouteImport.update({
-  id: '/api/site-background',
-  path: '/api/site-background',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminPaymentsRoute = AdminPaymentsRouteImport.update({
-  id: '/payments',
-  path: '/payments',
-  getParentRoute: () => AdminRouteRoute,
-} as any)
-const AdminPaymentReviewsRoute = AdminPaymentReviewsRouteImport.update({
-  id: '/payment-reviews',
-  path: '/payment-reviews',
-  getParentRoute: () => AdminRouteRoute,
-} as any)
-const AdminOrdersRoute = AdminOrdersRouteImport.update({
-  id: '/orders',
-  path: '/orders',
-  getParentRoute: () => AdminRouteRoute,
-} as any)
-const AdminEmailRoute = AdminEmailRouteImport.update({
-  id: '/email',
-  path: '/email',
-  getParentRoute: () => AdminRouteRoute,
-} as any)
-const AdminApiKeysRoute = AdminApiKeysRouteImport.update({
-  id: '/api-keys',
-  path: '/api-keys',
-  getParentRoute: () => AdminRouteRoute,
-} as any)
-const publicStatusRoute = publicStatusRouteImport.update({
-  id: '/status',
-  path: '/status',
-  getParentRoute: () => publicRouteRoute,
-} as any)
-const publicDocsRoute = publicDocsRouteImport.update({
-  id: '/docs',
-  path: '/docs',
-  getParentRoute: () => publicRouteRoute,
-} as any)
-const publicAssetsRoute = publicAssetsRouteImport.update({
-  id: '/assets',
-  path: '/assets',
-  getParentRoute: () => publicRouteRoute,
-} as any)
-const errors503Route = errors503RouteImport.update({
-  id: '/(errors)/503',
-  path: '/503',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const errors500Route = errors500RouteImport.update({
-  id: '/(errors)/500',
-  path: '/500',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const errors404Route = errors404RouteImport.update({
-  id: '/(errors)/404',
-  path: '/404',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const errors403Route = errors403RouteImport.update({
-  id: '/(errors)/403',
-  path: '/403',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const errors401Route = errors401RouteImport.update({
-  id: '/(errors)/401',
-  path: '/401',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const authTwoFactorRoute = authTwoFactorRouteImport.update({
-  id: '/two-factor',
-  path: '/two-factor',
-  getParentRoute: () => authRouteRoute,
-} as any)
-const authSignInRoute = authSignInRouteImport.update({
-  id: '/sign-in',
-  path: '/sign-in',
+const authForgotPasswordRoute = authForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
   getParentRoute: () => authRouteRoute,
 } as any)
 const authResetPasswordRoute = authResetPasswordRouteImport.update({
@@ -208,24 +113,94 @@ const authResetPasswordRoute = authResetPasswordRouteImport.update({
   path: '/reset-password',
   getParentRoute: () => authRouteRoute,
 } as any)
-const authForgotPasswordRoute = authForgotPasswordRouteImport.update({
-  id: '/forgot-password',
-  path: '/forgot-password',
+const authSignInRoute = authSignInRouteImport.update({
+  id: '/sign-in',
+  path: '/sign-in',
   getParentRoute: () => authRouteRoute,
 } as any)
-const AdminWebhooksRouteRoute = AdminWebhooksRouteRouteImport.update({
-  id: '/webhooks',
-  path: '/webhooks',
+const authTwoFactorRoute = authTwoFactorRouteImport.update({
+  id: '/two-factor',
+  path: '/two-factor',
+  getParentRoute: () => authRouteRoute,
+} as any)
+const errors401Route = errors401RouteImport.update({
+  id: '/(errors)/401',
+  path: '/401',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const errors403Route = errors403RouteImport.update({
+  id: '/(errors)/403',
+  path: '/403',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const errors404Route = errors404RouteImport.update({
+  id: '/(errors)/404',
+  path: '/404',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const errors500Route = errors500RouteImport.update({
+  id: '/(errors)/500',
+  path: '/500',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const errors503Route = errors503RouteImport.update({
+  id: '/(errors)/503',
+  path: '/503',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const publicIndexRoute = publicIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => publicRouteRoute,
+} as any)
+const publicAssetsRoute = publicAssetsRouteImport.update({
+  id: '/assets',
+  path: '/assets',
+  getParentRoute: () => publicRouteRoute,
+} as any)
+const publicDocsRoute = publicDocsRouteImport.update({
+  id: '/docs',
+  path: '/docs',
+  getParentRoute: () => publicRouteRoute,
+} as any)
+const publicStatusRoute = publicStatusRouteImport.update({
+  id: '/status',
+  path: '/status',
+  getParentRoute: () => publicRouteRoute,
+} as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => AdminRouteRoute,
 } as any)
-const AdminTelegramRouteRoute = AdminTelegramRouteRouteImport.update({
-  id: '/telegram',
-  path: '/telegram',
+const AdminAccessRouteRoute = AdminAccessRouteRouteImport.update({
+  id: '/access',
+  path: '/access',
   getParentRoute: () => AdminRouteRoute,
 } as any)
-const AdminSettingsRouteRoute = AdminSettingsRouteRouteImport.update({
-  id: '/settings',
-  path: '/settings',
+const AdminApiKeysRoute = AdminApiKeysRouteImport.update({
+  id: '/api-keys',
+  path: '/api-keys',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminEmailRoute = AdminEmailRouteImport.update({
+  id: '/email',
+  path: '/email',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminOperationsRouteRoute = AdminOperationsRouteRouteImport.update({
+  id: '/operations',
+  path: '/operations',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminOrdersRoute = AdminOrdersRouteImport.update({
+  id: '/orders',
+  path: '/orders',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminPaymentReviewsRoute = AdminPaymentReviewsRouteImport.update({
+  id: '/payment-reviews',
+  path: '/payment-reviews',
   getParentRoute: () => AdminRouteRoute,
 } as any)
 const AdminPaymentSettingsRouteRoute =
@@ -234,163 +209,49 @@ const AdminPaymentSettingsRouteRoute =
     path: '/payment-settings',
     getParentRoute: () => AdminRouteRoute,
   } as any)
-const AdminOperationsRouteRoute = AdminOperationsRouteRouteImport.update({
-  id: '/operations',
-  path: '/operations',
+const AdminPaymentsRoute = AdminPaymentsRouteImport.update({
+  id: '/payments',
+  path: '/payments',
   getParentRoute: () => AdminRouteRoute,
 } as any)
-const AdminAccessRouteRoute = AdminAccessRouteRouteImport.update({
-  id: '/access',
-  path: '/access',
+const AdminSettingsRouteRoute = AdminSettingsRouteRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => AdminRouteRoute,
 } as any)
-const AdminWebhooksIndexRoute = AdminWebhooksIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AdminWebhooksRouteRoute,
+const AdminTelegramRouteRoute = AdminTelegramRouteRouteImport.update({
+  id: '/telegram',
+  path: '/telegram',
+  getParentRoute: () => AdminRouteRoute,
 } as any)
-const AdminTelegramIndexRoute = AdminTelegramIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AdminTelegramRouteRoute,
+const AdminWebhooksRouteRoute = AdminWebhooksRouteRouteImport.update({
+  id: '/webhooks',
+  path: '/webhooks',
+  getParentRoute: () => AdminRouteRoute,
 } as any)
-const AdminSettingsIndexRoute = AdminSettingsIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AdminSettingsRouteRoute,
+const ApiSiteBackgroundRoute = ApiSiteBackgroundRouteImport.update({
+  id: '/api/site-background',
+  path: '/api/site-background',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AdminReceivingMethodsIndexRoute =
-  AdminReceivingMethodsIndexRouteImport.update({
-    id: '/receiving-methods/',
-    path: '/receiving-methods/',
-    getParentRoute: () => AdminRouteRoute,
-  } as any)
-const AdminPaymentSettingsIndexRoute =
-  AdminPaymentSettingsIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => AdminPaymentSettingsRouteRoute,
-  } as any)
-const AdminOperationsIndexRoute = AdminOperationsIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AdminOperationsRouteRoute,
+const ApiSiteLogoRoute = ApiSiteLogoRouteImport.update({
+  id: '/api/site-logo',
+  path: '/api/site-logo',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CheckoutOrderIdRoute = CheckoutOrderIdRouteImport.update({
+  id: '/checkout/$orderId',
+  path: '/checkout/$orderId',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AdminAccessIndexRoute = AdminAccessIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AdminAccessRouteRoute,
 } as any)
-const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
-  id: '/api/auth/$',
-  path: '/api/auth/$',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminWebhooksRecordsRoute = AdminWebhooksRecordsRouteImport.update({
-  id: '/records',
-  path: '/records',
-  getParentRoute: () => AdminWebhooksRouteRoute,
-} as any)
-const AdminWebhooksProviderEventsRoute =
-  AdminWebhooksProviderEventsRouteImport.update({
-    id: '/provider-events',
-    path: '/provider-events',
-    getParentRoute: () => AdminWebhooksRouteRoute,
-  } as any)
-const AdminWebhooksInboundRecordsRoute =
-  AdminWebhooksInboundRecordsRouteImport.update({
-    id: '/inbound-records',
-    path: '/inbound-records',
-    getParentRoute: () => AdminWebhooksRouteRoute,
-  } as any)
-const AdminTelegramNotificationsRoute =
-  AdminTelegramNotificationsRouteImport.update({
-    id: '/notifications',
-    path: '/notifications',
-    getParentRoute: () => AdminTelegramRouteRoute,
-  } as any)
-const AdminTelegramCommandsRoute = AdminTelegramCommandsRouteImport.update({
-  id: '/commands',
-  path: '/commands',
-  getParentRoute: () => AdminTelegramRouteRoute,
-} as any)
-const AdminSettingsWebhooksRoute = AdminSettingsWebhooksRouteImport.update({
-  id: '/webhooks',
-  path: '/webhooks',
-  getParentRoute: () => AdminSettingsRouteRoute,
-} as any)
-const AdminSettingsSecretsRoute = AdminSettingsSecretsRouteImport.update({
-  id: '/secrets',
-  path: '/secrets',
-  getParentRoute: () => AdminSettingsRouteRoute,
-} as any)
-const AdminSettingsScanningRoute = AdminSettingsScanningRouteImport.update({
-  id: '/scanning',
-  path: '/scanning',
-  getParentRoute: () => AdminSettingsRouteRoute,
-} as any)
-const AdminSettingsRetentionRoute = AdminSettingsRetentionRouteImport.update({
-  id: '/retention',
-  path: '/retention',
-  getParentRoute: () => AdminSettingsRouteRoute,
-} as any)
-const AdminSettingsPaymentRoute = AdminSettingsPaymentRouteImport.update({
-  id: '/payment',
-  path: '/payment',
-  getParentRoute: () => AdminSettingsRouteRoute,
-} as any)
-const AdminSettingsOrdersRoute = AdminSettingsOrdersRouteImport.update({
-  id: '/orders',
-  path: '/orders',
-  getParentRoute: () => AdminSettingsRouteRoute,
-} as any)
-const AdminSettingsAuthRoute = AdminSettingsAuthRouteImport.update({
-  id: '/auth',
-  path: '/auth',
-  getParentRoute: () => AdminSettingsRouteRoute,
-} as any)
-const AdminSettingsAccessRoute = AdminSettingsAccessRouteImport.update({
-  id: '/access',
-  path: '/access',
-  getParentRoute: () => AdminSettingsRouteRoute,
-} as any)
-const AdminPaymentSettingsRatesRoute =
-  AdminPaymentSettingsRatesRouteImport.update({
-    id: '/rates',
-    path: '/rates',
-    getParentRoute: () => AdminPaymentSettingsRouteRoute,
-  } as any)
-const AdminPaymentSettingsIngressesRoute =
-  AdminPaymentSettingsIngressesRouteImport.update({
-    id: '/ingresses',
-    path: '/ingresses',
-    getParentRoute: () => AdminPaymentSettingsRouteRoute,
-  } as any)
-const AdminOperationsScheduledRoute =
-  AdminOperationsScheduledRouteImport.update({
-    id: '/scheduled',
-    path: '/scheduled',
-    getParentRoute: () => AdminOperationsRouteRoute,
-  } as any)
-const AdminOperationsQueuesRoute = AdminOperationsQueuesRouteImport.update({
-  id: '/queues',
-  path: '/queues',
-  getParentRoute: () => AdminOperationsRouteRoute,
-} as any)
-const AdminOperationsAuditLogsRoute =
-  AdminOperationsAuditLogsRouteImport.update({
-    id: '/audit-logs',
-    path: '/audit-logs',
-    getParentRoute: () => AdminOperationsRouteRoute,
-  } as any)
-const AdminAccessUsersRoute = AdminAccessUsersRouteImport.update({
-  id: '/users',
-  path: '/users',
-  getParentRoute: () => AdminAccessRouteRoute,
-} as any)
-const AdminAccessRolesRoute = AdminAccessRolesRouteImport.update({
-  id: '/roles',
-  path: '/roles',
+const AdminAccessModulesRoute = AdminAccessModulesRouteImport.update({
+  id: '/modules',
+  path: '/modules',
   getParentRoute: () => AdminAccessRouteRoute,
 } as any)
 const AdminAccessPermissionBitsRoute =
@@ -399,10 +260,149 @@ const AdminAccessPermissionBitsRoute =
     path: '/permission-bits',
     getParentRoute: () => AdminAccessRouteRoute,
   } as any)
-const AdminAccessModulesRoute = AdminAccessModulesRouteImport.update({
-  id: '/modules',
-  path: '/modules',
+const AdminAccessRolesRoute = AdminAccessRolesRouteImport.update({
+  id: '/roles',
+  path: '/roles',
   getParentRoute: () => AdminAccessRouteRoute,
+} as any)
+const AdminAccessUsersRoute = AdminAccessUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AdminAccessRouteRoute,
+} as any)
+const AdminOperationsIndexRoute = AdminOperationsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminOperationsRouteRoute,
+} as any)
+const AdminOperationsAuditLogsRoute =
+  AdminOperationsAuditLogsRouteImport.update({
+    id: '/audit-logs',
+    path: '/audit-logs',
+    getParentRoute: () => AdminOperationsRouteRoute,
+  } as any)
+const AdminOperationsQueuesRoute = AdminOperationsQueuesRouteImport.update({
+  id: '/queues',
+  path: '/queues',
+  getParentRoute: () => AdminOperationsRouteRoute,
+} as any)
+const AdminOperationsScheduledRoute =
+  AdminOperationsScheduledRouteImport.update({
+    id: '/scheduled',
+    path: '/scheduled',
+    getParentRoute: () => AdminOperationsRouteRoute,
+  } as any)
+const AdminPaymentSettingsIndexRoute =
+  AdminPaymentSettingsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AdminPaymentSettingsRouteRoute,
+  } as any)
+const AdminPaymentSettingsIngressesRoute =
+  AdminPaymentSettingsIngressesRouteImport.update({
+    id: '/ingresses',
+    path: '/ingresses',
+    getParentRoute: () => AdminPaymentSettingsRouteRoute,
+  } as any)
+const AdminPaymentSettingsRatesRoute =
+  AdminPaymentSettingsRatesRouteImport.update({
+    id: '/rates',
+    path: '/rates',
+    getParentRoute: () => AdminPaymentSettingsRouteRoute,
+  } as any)
+const AdminReceivingMethodsIndexRoute =
+  AdminReceivingMethodsIndexRouteImport.update({
+    id: '/receiving-methods/',
+    path: '/receiving-methods/',
+    getParentRoute: () => AdminRouteRoute,
+  } as any)
+const AdminSettingsIndexRoute = AdminSettingsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminSettingsRouteRoute,
+} as any)
+const AdminSettingsAccessRoute = AdminSettingsAccessRouteImport.update({
+  id: '/access',
+  path: '/access',
+  getParentRoute: () => AdminSettingsRouteRoute,
+} as any)
+const AdminSettingsAuthRoute = AdminSettingsAuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => AdminSettingsRouteRoute,
+} as any)
+const AdminSettingsOrdersRoute = AdminSettingsOrdersRouteImport.update({
+  id: '/orders',
+  path: '/orders',
+  getParentRoute: () => AdminSettingsRouteRoute,
+} as any)
+const AdminSettingsPaymentRoute = AdminSettingsPaymentRouteImport.update({
+  id: '/payment',
+  path: '/payment',
+  getParentRoute: () => AdminSettingsRouteRoute,
+} as any)
+const AdminSettingsRetentionRoute = AdminSettingsRetentionRouteImport.update({
+  id: '/retention',
+  path: '/retention',
+  getParentRoute: () => AdminSettingsRouteRoute,
+} as any)
+const AdminSettingsScanningRoute = AdminSettingsScanningRouteImport.update({
+  id: '/scanning',
+  path: '/scanning',
+  getParentRoute: () => AdminSettingsRouteRoute,
+} as any)
+const AdminSettingsSecretsRoute = AdminSettingsSecretsRouteImport.update({
+  id: '/secrets',
+  path: '/secrets',
+  getParentRoute: () => AdminSettingsRouteRoute,
+} as any)
+const AdminSettingsWebhooksRoute = AdminSettingsWebhooksRouteImport.update({
+  id: '/webhooks',
+  path: '/webhooks',
+  getParentRoute: () => AdminSettingsRouteRoute,
+} as any)
+const AdminTelegramIndexRoute = AdminTelegramIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminTelegramRouteRoute,
+} as any)
+const AdminTelegramCommandsRoute = AdminTelegramCommandsRouteImport.update({
+  id: '/commands',
+  path: '/commands',
+  getParentRoute: () => AdminTelegramRouteRoute,
+} as any)
+const AdminTelegramNotificationsRoute =
+  AdminTelegramNotificationsRouteImport.update({
+    id: '/notifications',
+    path: '/notifications',
+    getParentRoute: () => AdminTelegramRouteRoute,
+  } as any)
+const AdminWebhooksIndexRoute = AdminWebhooksIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminWebhooksRouteRoute,
+} as any)
+const AdminWebhooksInboundRecordsRoute =
+  AdminWebhooksInboundRecordsRouteImport.update({
+    id: '/inbound-records',
+    path: '/inbound-records',
+    getParentRoute: () => AdminWebhooksRouteRoute,
+  } as any)
+const AdminWebhooksProviderEventsRoute =
+  AdminWebhooksProviderEventsRouteImport.update({
+    id: '/provider-events',
+    path: '/provider-events',
+    getParentRoute: () => AdminWebhooksRouteRoute,
+  } as any)
+const AdminWebhooksRecordsRoute = AdminWebhooksRecordsRouteImport.update({
+  id: '/records',
+  path: '/records',
+  getParentRoute: () => AdminWebhooksRouteRoute,
+} as any)
+const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
+  id: '/api/auth/$',
+  path: '/api/auth/$',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AdminPaymentSettingsRatesIndexRoute =
   AdminPaymentSettingsRatesIndexRouteImport.update({
@@ -410,20 +410,16 @@ const AdminPaymentSettingsRatesIndexRoute =
     path: '/',
     getParentRoute: () => AdminPaymentSettingsRatesRoute,
   } as any)
-const ApiTelegramBotIdWebhookRoute = ApiTelegramBotIdWebhookRouteImport.update({
-  id: '/api/telegram/$botId/webhook',
-  path: '/api/telegram/$botId/webhook',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiProvidersOkpayNotifyRoute = ApiProvidersOkpayNotifyRouteImport.update({
-  id: '/api/providers/okpay/notify',
-  path: '/api/providers/okpay/notify',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiProvidersAlipayNotifyRoute =
-  ApiProvidersAlipayNotifyRouteImport.update({
-    id: '/api/providers/alipay/notify',
-    path: '/api/providers/alipay/notify',
+const AdminPaymentSettingsRatesFiatRoute =
+  AdminPaymentSettingsRatesFiatRouteImport.update({
+    id: '/fiat',
+    path: '/fiat',
+    getParentRoute: () => AdminPaymentSettingsRatesRoute,
+  } as any)
+const ApiCheckoutOrderIdReviewRoute =
+  ApiCheckoutOrderIdReviewRouteImport.update({
+    id: '/api/checkout/$orderId/review',
+    path: '/api/checkout/$orderId/review',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiProvidersAlchemySourceIdRoute =
@@ -432,22 +428,26 @@ const ApiProvidersAlchemySourceIdRoute =
     path: '/api/providers/alchemy/$sourceId',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiCheckoutOrderIdReviewRoute =
-  ApiCheckoutOrderIdReviewRouteImport.update({
-    id: '/api/checkout/$orderId/review',
-    path: '/api/checkout/$orderId/review',
+const ApiProvidersAlipayNotifyRoute =
+  ApiProvidersAlipayNotifyRouteImport.update({
+    id: '/api/providers/alipay/notify',
+    path: '/api/providers/alipay/notify',
     getParentRoute: () => rootRouteImport,
   } as any)
-const AdminPaymentSettingsRatesFiatRoute =
-  AdminPaymentSettingsRatesFiatRouteImport.update({
-    id: '/fiat',
-    path: '/fiat',
-    getParentRoute: () => AdminPaymentSettingsRatesRoute,
-  } as any)
-const PaymentsGmpayV1OrderQueryRoute =
-  PaymentsGmpayV1OrderQueryRouteImport.update({
-    id: '/payments/gmpay/v1/order/query',
-    path: '/payments/gmpay/v1/order/query',
+const ApiProvidersOkpayNotifyRoute = ApiProvidersOkpayNotifyRouteImport.update({
+  id: '/api/providers/okpay/notify',
+  path: '/api/providers/okpay/notify',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTelegramBotIdWebhookRoute = ApiTelegramBotIdWebhookRouteImport.update({
+  id: '/api/telegram/$botId/webhook',
+  path: '/api/telegram/$botId/webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminPaymentReviewsReviewIdEvidenceRoute =
+  ApiAdminPaymentReviewsReviewIdEvidenceRouteImport.update({
+    id: '/api/admin/payment-reviews/$reviewId/evidence',
+    path: '/api/admin/payment-reviews/$reviewId/evidence',
     getParentRoute: () => rootRouteImport,
   } as any)
 const PaymentsGmpayV1OrderCreateTransactionRoute =
@@ -456,16 +456,16 @@ const PaymentsGmpayV1OrderCreateTransactionRoute =
     path: '/payments/gmpay/v1/order/create-transaction',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiAdminPaymentReviewsReviewIdEvidenceRoute =
-  ApiAdminPaymentReviewsReviewIdEvidenceRouteImport.update({
-    id: '/api/admin/payment-reviews/$reviewId/evidence',
-    path: '/api/admin/payment-reviews/$reviewId/evidence',
+const PaymentsGmpayV1OrderQueryRoute =
+  PaymentsGmpayV1OrderQueryRouteImport.update({
+    id: '/payments/gmpay/v1/order/query',
+    path: '/payments/gmpay/v1/order/query',
     getParentRoute: () => rootRouteImport,
   } as any)
-const PaymentsEpayV1OrderCreateTransactionSubmitDotphpRoute =
-  PaymentsEpayV1OrderCreateTransactionSubmitDotphpRouteImport.update({
-    id: '/payments/epay/v1/order/create-transaction/submit.php',
-    path: '/payments/epay/v1/order/create-transaction/submit.php',
+const PaymentsEpayV1OrderCreateTransactionApiDotphpRoute =
+  PaymentsEpayV1OrderCreateTransactionApiDotphpRouteImport.update({
+    id: '/payments/epay/v1/order/create-transaction/api.php',
+    path: '/payments/epay/v1/order/create-transaction/api.php',
     getParentRoute: () => rootRouteImport,
   } as any)
 const PaymentsEpayV1OrderCreateTransactionMapiDotphpRoute =
@@ -474,10 +474,10 @@ const PaymentsEpayV1OrderCreateTransactionMapiDotphpRoute =
     path: '/payments/epay/v1/order/create-transaction/mapi.php',
     getParentRoute: () => rootRouteImport,
   } as any)
-const PaymentsEpayV1OrderCreateTransactionApiDotphpRoute =
-  PaymentsEpayV1OrderCreateTransactionApiDotphpRouteImport.update({
-    id: '/payments/epay/v1/order/create-transaction/api.php',
-    path: '/payments/epay/v1/order/create-transaction/api.php',
+const PaymentsEpayV1OrderCreateTransactionSubmitDotphpRoute =
+  PaymentsEpayV1OrderCreateTransactionSubmitDotphpRouteImport.update({
+    id: '/payments/epay/v1/order/create-transaction/submit.php',
+    path: '/payments/epay/v1/order/create-transaction/submit.php',
     getParentRoute: () => rootRouteImport,
   } as any)
 
@@ -544,8 +544,8 @@ export interface FileRoutesByFullPath {
   '/admin/webhooks/': typeof AdminWebhooksIndexRoute
   '/admin/payment-settings/rates/fiat': typeof AdminPaymentSettingsRatesFiatRoute
   '/api/checkout/$orderId/review': typeof ApiCheckoutOrderIdReviewRoute
-  '/api/providers/alipay/notify': typeof ApiProvidersAlipayNotifyRoute
   '/api/providers/alchemy/$sourceId': typeof ApiProvidersAlchemySourceIdRoute
+  '/api/providers/alipay/notify': typeof ApiProvidersAlipayNotifyRoute
   '/api/providers/okpay/notify': typeof ApiProvidersOkpayNotifyRoute
   '/api/telegram/$botId/webhook': typeof ApiTelegramBotIdWebhookRoute
   '/admin/payment-settings/rates/': typeof AdminPaymentSettingsRatesIndexRoute
@@ -611,8 +611,8 @@ export interface FileRoutesByTo {
   '/admin/webhooks': typeof AdminWebhooksIndexRoute
   '/admin/payment-settings/rates/fiat': typeof AdminPaymentSettingsRatesFiatRoute
   '/api/checkout/$orderId/review': typeof ApiCheckoutOrderIdReviewRoute
-  '/api/providers/alipay/notify': typeof ApiProvidersAlipayNotifyRoute
   '/api/providers/alchemy/$sourceId': typeof ApiProvidersAlchemySourceIdRoute
+  '/api/providers/alipay/notify': typeof ApiProvidersAlipayNotifyRoute
   '/api/providers/okpay/notify': typeof ApiProvidersOkpayNotifyRoute
   '/api/telegram/$botId/webhook': typeof ApiTelegramBotIdWebhookRoute
   '/admin/payment-settings/rates': typeof AdminPaymentSettingsRatesIndexRoute
@@ -689,8 +689,8 @@ export interface FileRoutesById {
   '/admin/webhooks/': typeof AdminWebhooksIndexRoute
   '/admin/payment-settings/rates/fiat': typeof AdminPaymentSettingsRatesFiatRoute
   '/api/checkout/$orderId/review': typeof ApiCheckoutOrderIdReviewRoute
-  '/api/providers/alipay/notify': typeof ApiProvidersAlipayNotifyRoute
   '/api/providers/alchemy/$sourceId': typeof ApiProvidersAlchemySourceIdRoute
+  '/api/providers/alipay/notify': typeof ApiProvidersAlipayNotifyRoute
   '/api/providers/okpay/notify': typeof ApiProvidersOkpayNotifyRoute
   '/api/telegram/$botId/webhook': typeof ApiTelegramBotIdWebhookRoute
   '/admin/payment-settings/rates/': typeof AdminPaymentSettingsRatesIndexRoute
@@ -766,8 +766,8 @@ export interface FileRouteTypes {
     | '/admin/webhooks/'
     | '/admin/payment-settings/rates/fiat'
     | '/api/checkout/$orderId/review'
-    | '/api/providers/alipay/notify'
     | '/api/providers/alchemy/$sourceId'
+    | '/api/providers/alipay/notify'
     | '/api/providers/okpay/notify'
     | '/api/telegram/$botId/webhook'
     | '/admin/payment-settings/rates/'
@@ -834,6 +834,7 @@ export interface FileRouteTypes {
     | '/admin/payment-settings/rates/fiat'
     | '/api/checkout/$orderId/review'
     | '/api/providers/alchemy/$sourceId'
+    | '/api/providers/alipay/notify'
     | '/api/providers/okpay/notify'
     | '/api/telegram/$botId/webhook'
     | '/admin/payment-settings/rates'
@@ -910,6 +911,7 @@ export interface FileRouteTypes {
     | '/admin/payment-settings/rates/fiat'
     | '/api/checkout/$orderId/review'
     | '/api/providers/alchemy/$sourceId'
+    | '/api/providers/alipay/notify'
     | '/api/providers/okpay/notify'
     | '/api/telegram/$botId/webhook'
     | '/admin/payment-settings/rates/'
@@ -936,8 +938,8 @@ export interface RootRouteChildren {
   CheckoutOrderIdRoute: typeof CheckoutOrderIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiCheckoutOrderIdReviewRoute: typeof ApiCheckoutOrderIdReviewRoute
-  ApiProvidersAlipayNotifyRoute: typeof ApiProvidersAlipayNotifyRoute
   ApiProvidersAlchemySourceIdRoute: typeof ApiProvidersAlchemySourceIdRoute
+  ApiProvidersAlipayNotifyRoute: typeof ApiProvidersAlipayNotifyRoute
   ApiProvidersOkpayNotifyRoute: typeof ApiProvidersOkpayNotifyRoute
   ApiTelegramBotIdWebhookRoute: typeof ApiTelegramBotIdWebhookRoute
   ApiAdminPaymentReviewsReviewIdEvidenceRoute: typeof ApiAdminPaymentReviewsReviewIdEvidenceRoute
@@ -950,18 +952,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/install': {
-      id: '/install'
-      path: '/install'
-      fullPath: '/install'
-      preLoaderRoute: typeof InstallRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin': {
-      id: '/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AdminRouteRouteImport
+    '/(auth)': {
+      id: '/(auth)'
+      path: ''
+      fullPath: ''
+      preLoaderRoute: typeof authRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/(public)': {
@@ -971,151 +966,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof publicRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/(auth)': {
-      id: '/(auth)'
-      path: ''
-      fullPath: ''
-      preLoaderRoute: typeof authRouteRouteImport
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin/': {
-      id: '/admin/'
-      path: '/'
-      fullPath: '/admin/'
-      preLoaderRoute: typeof AdminIndexRouteImport
-      parentRoute: typeof AdminRouteRoute
-    }
-    '/(public)/': {
-      id: '/(public)/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof publicIndexRouteImport
-      parentRoute: typeof publicRouteRoute
-    }
-    '/checkout/$orderId': {
-      id: '/checkout/$orderId'
-      path: '/checkout/$orderId'
-      fullPath: '/checkout/$orderId'
-      preLoaderRoute: typeof CheckoutOrderIdRouteImport
+    '/install': {
+      id: '/install'
+      path: '/install'
+      fullPath: '/install'
+      preLoaderRoute: typeof InstallRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/site-logo': {
-      id: '/api/site-logo'
-      path: '/api/site-logo'
-      fullPath: '/api/site-logo'
-      preLoaderRoute: typeof ApiSiteLogoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/site-background': {
-      id: '/api/site-background'
-      path: '/api/site-background'
-      fullPath: '/api/site-background'
-      preLoaderRoute: typeof ApiSiteBackgroundRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/payments': {
-      id: '/admin/payments'
-      path: '/payments'
-      fullPath: '/admin/payments'
-      preLoaderRoute: typeof AdminPaymentsRouteImport
-      parentRoute: typeof AdminRouteRoute
-    }
-    '/admin/payment-reviews': {
-      id: '/admin/payment-reviews'
-      path: '/payment-reviews'
-      fullPath: '/admin/payment-reviews'
-      preLoaderRoute: typeof AdminPaymentReviewsRouteImport
-      parentRoute: typeof AdminRouteRoute
-    }
-    '/admin/orders': {
-      id: '/admin/orders'
-      path: '/orders'
-      fullPath: '/admin/orders'
-      preLoaderRoute: typeof AdminOrdersRouteImport
-      parentRoute: typeof AdminRouteRoute
-    }
-    '/admin/email': {
-      id: '/admin/email'
-      path: '/email'
-      fullPath: '/admin/email'
-      preLoaderRoute: typeof AdminEmailRouteImport
-      parentRoute: typeof AdminRouteRoute
-    }
-    '/admin/api-keys': {
-      id: '/admin/api-keys'
-      path: '/api-keys'
-      fullPath: '/admin/api-keys'
-      preLoaderRoute: typeof AdminApiKeysRouteImport
-      parentRoute: typeof AdminRouteRoute
-    }
-    '/(public)/status': {
-      id: '/(public)/status'
-      path: '/status'
-      fullPath: '/status'
-      preLoaderRoute: typeof publicStatusRouteImport
-      parentRoute: typeof publicRouteRoute
-    }
-    '/(public)/docs': {
-      id: '/(public)/docs'
-      path: '/docs'
-      fullPath: '/docs'
-      preLoaderRoute: typeof publicDocsRouteImport
-      parentRoute: typeof publicRouteRoute
-    }
-    '/(public)/assets': {
-      id: '/(public)/assets'
-      path: '/assets'
-      fullPath: '/assets'
-      preLoaderRoute: typeof publicAssetsRouteImport
-      parentRoute: typeof publicRouteRoute
-    }
-    '/(errors)/503': {
-      id: '/(errors)/503'
-      path: '/503'
-      fullPath: '/503'
-      preLoaderRoute: typeof errors503RouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/(errors)/500': {
-      id: '/(errors)/500'
-      path: '/500'
-      fullPath: '/500'
-      preLoaderRoute: typeof errors500RouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/(errors)/404': {
-      id: '/(errors)/404'
-      path: '/404'
-      fullPath: '/404'
-      preLoaderRoute: typeof errors404RouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/(errors)/403': {
-      id: '/(errors)/403'
-      path: '/403'
-      fullPath: '/403'
-      preLoaderRoute: typeof errors403RouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/(errors)/401': {
-      id: '/(errors)/401'
-      path: '/401'
-      fullPath: '/401'
-      preLoaderRoute: typeof errors401RouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/(auth)/two-factor': {
-      id: '/(auth)/two-factor'
-      path: '/two-factor'
-      fullPath: '/two-factor'
-      preLoaderRoute: typeof authTwoFactorRouteImport
-      parentRoute: typeof authRouteRoute
-    }
-    '/(auth)/sign-in': {
-      id: '/(auth)/sign-in'
-      path: '/sign-in'
-      fullPath: '/sign-in'
-      preLoaderRoute: typeof authSignInRouteImport
+    '/(auth)/forgot-password': {
+      id: '/(auth)/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof authForgotPasswordRouteImport
       parentRoute: typeof authRouteRoute
     }
     '/(auth)/reset-password': {
@@ -1125,46 +994,88 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof authResetPasswordRouteImport
       parentRoute: typeof authRouteRoute
     }
-    '/(auth)/forgot-password': {
-      id: '/(auth)/forgot-password'
-      path: '/forgot-password'
-      fullPath: '/forgot-password'
-      preLoaderRoute: typeof authForgotPasswordRouteImport
+    '/(auth)/sign-in': {
+      id: '/(auth)/sign-in'
+      path: '/sign-in'
+      fullPath: '/sign-in'
+      preLoaderRoute: typeof authSignInRouteImport
       parentRoute: typeof authRouteRoute
     }
-    '/admin/webhooks': {
-      id: '/admin/webhooks'
-      path: '/webhooks'
-      fullPath: '/admin/webhooks'
-      preLoaderRoute: typeof AdminWebhooksRouteRouteImport
-      parentRoute: typeof AdminRouteRoute
+    '/(auth)/two-factor': {
+      id: '/(auth)/two-factor'
+      path: '/two-factor'
+      fullPath: '/two-factor'
+      preLoaderRoute: typeof authTwoFactorRouteImport
+      parentRoute: typeof authRouteRoute
     }
-    '/admin/telegram': {
-      id: '/admin/telegram'
-      path: '/telegram'
-      fullPath: '/admin/telegram'
-      preLoaderRoute: typeof AdminTelegramRouteRouteImport
-      parentRoute: typeof AdminRouteRoute
+    '/(errors)/401': {
+      id: '/(errors)/401'
+      path: '/401'
+      fullPath: '/401'
+      preLoaderRoute: typeof errors401RouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/admin/settings': {
-      id: '/admin/settings'
-      path: '/settings'
-      fullPath: '/admin/settings'
-      preLoaderRoute: typeof AdminSettingsRouteRouteImport
-      parentRoute: typeof AdminRouteRoute
+    '/(errors)/403': {
+      id: '/(errors)/403'
+      path: '/403'
+      fullPath: '/403'
+      preLoaderRoute: typeof errors403RouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/admin/payment-settings': {
-      id: '/admin/payment-settings'
-      path: '/payment-settings'
-      fullPath: '/admin/payment-settings'
-      preLoaderRoute: typeof AdminPaymentSettingsRouteRouteImport
-      parentRoute: typeof AdminRouteRoute
+    '/(errors)/404': {
+      id: '/(errors)/404'
+      path: '/404'
+      fullPath: '/404'
+      preLoaderRoute: typeof errors404RouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/admin/operations': {
-      id: '/admin/operations'
-      path: '/operations'
-      fullPath: '/admin/operations'
-      preLoaderRoute: typeof AdminOperationsRouteRouteImport
+    '/(errors)/500': {
+      id: '/(errors)/500'
+      path: '/500'
+      fullPath: '/500'
+      preLoaderRoute: typeof errors500RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/(errors)/503': {
+      id: '/(errors)/503'
+      path: '/503'
+      fullPath: '/503'
+      preLoaderRoute: typeof errors503RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/(public)/': {
+      id: '/(public)/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof publicIndexRouteImport
+      parentRoute: typeof publicRouteRoute
+    }
+    '/(public)/assets': {
+      id: '/(public)/assets'
+      path: '/assets'
+      fullPath: '/assets'
+      preLoaderRoute: typeof publicAssetsRouteImport
+      parentRoute: typeof publicRouteRoute
+    }
+    '/(public)/docs': {
+      id: '/(public)/docs'
+      path: '/docs'
+      fullPath: '/docs'
+      preLoaderRoute: typeof publicDocsRouteImport
+      parentRoute: typeof publicRouteRoute
+    }
+    '/(public)/status': {
+      id: '/(public)/status'
+      path: '/status'
+      fullPath: '/status'
+      preLoaderRoute: typeof publicStatusRouteImport
+      parentRoute: typeof publicRouteRoute
+    }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRouteRoute
     }
     '/admin/access': {
@@ -1174,207 +1085,102 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAccessRouteRouteImport
       parentRoute: typeof AdminRouteRoute
     }
-    '/admin/webhooks/': {
-      id: '/admin/webhooks/'
-      path: '/'
-      fullPath: '/admin/webhooks/'
-      preLoaderRoute: typeof AdminWebhooksIndexRouteImport
-      parentRoute: typeof AdminWebhooksRouteRoute
-    }
-    '/admin/telegram/': {
-      id: '/admin/telegram/'
-      path: '/'
-      fullPath: '/admin/telegram/'
-      preLoaderRoute: typeof AdminTelegramIndexRouteImport
-      parentRoute: typeof AdminTelegramRouteRoute
-    }
-    '/admin/settings/': {
-      id: '/admin/settings/'
-      path: '/'
-      fullPath: '/admin/settings/'
-      preLoaderRoute: typeof AdminSettingsIndexRouteImport
-      parentRoute: typeof AdminSettingsRouteRoute
-    }
-    '/admin/receiving-methods/': {
-      id: '/admin/receiving-methods/'
-      path: '/receiving-methods'
-      fullPath: '/admin/receiving-methods/'
-      preLoaderRoute: typeof AdminReceivingMethodsIndexRouteImport
+    '/admin/api-keys': {
+      id: '/admin/api-keys'
+      path: '/api-keys'
+      fullPath: '/admin/api-keys'
+      preLoaderRoute: typeof AdminApiKeysRouteImport
       parentRoute: typeof AdminRouteRoute
     }
-    '/admin/payment-settings/': {
-      id: '/admin/payment-settings/'
-      path: '/'
-      fullPath: '/admin/payment-settings/'
-      preLoaderRoute: typeof AdminPaymentSettingsIndexRouteImport
-      parentRoute: typeof AdminPaymentSettingsRouteRoute
+    '/admin/email': {
+      id: '/admin/email'
+      path: '/email'
+      fullPath: '/admin/email'
+      preLoaderRoute: typeof AdminEmailRouteImport
+      parentRoute: typeof AdminRouteRoute
     }
-    '/admin/operations/': {
-      id: '/admin/operations/'
-      path: '/'
-      fullPath: '/admin/operations/'
-      preLoaderRoute: typeof AdminOperationsIndexRouteImport
-      parentRoute: typeof AdminOperationsRouteRoute
+    '/admin/operations': {
+      id: '/admin/operations'
+      path: '/operations'
+      fullPath: '/admin/operations'
+      preLoaderRoute: typeof AdminOperationsRouteRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/orders': {
+      id: '/admin/orders'
+      path: '/orders'
+      fullPath: '/admin/orders'
+      preLoaderRoute: typeof AdminOrdersRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/payment-reviews': {
+      id: '/admin/payment-reviews'
+      path: '/payment-reviews'
+      fullPath: '/admin/payment-reviews'
+      preLoaderRoute: typeof AdminPaymentReviewsRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/payment-settings': {
+      id: '/admin/payment-settings'
+      path: '/payment-settings'
+      fullPath: '/admin/payment-settings'
+      preLoaderRoute: typeof AdminPaymentSettingsRouteRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/payments': {
+      id: '/admin/payments'
+      path: '/payments'
+      fullPath: '/admin/payments'
+      preLoaderRoute: typeof AdminPaymentsRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/settings': {
+      id: '/admin/settings'
+      path: '/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AdminSettingsRouteRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/telegram': {
+      id: '/admin/telegram'
+      path: '/telegram'
+      fullPath: '/admin/telegram'
+      preLoaderRoute: typeof AdminTelegramRouteRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/webhooks': {
+      id: '/admin/webhooks'
+      path: '/webhooks'
+      fullPath: '/admin/webhooks'
+      preLoaderRoute: typeof AdminWebhooksRouteRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/api/site-background': {
+      id: '/api/site-background'
+      path: '/api/site-background'
+      fullPath: '/api/site-background'
+      preLoaderRoute: typeof ApiSiteBackgroundRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/site-logo': {
+      id: '/api/site-logo'
+      path: '/api/site-logo'
+      fullPath: '/api/site-logo'
+      preLoaderRoute: typeof ApiSiteLogoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/checkout/$orderId': {
+      id: '/checkout/$orderId'
+      path: '/checkout/$orderId'
+      fullPath: '/checkout/$orderId'
+      preLoaderRoute: typeof CheckoutOrderIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/admin/access/': {
       id: '/admin/access/'
       path: '/'
       fullPath: '/admin/access/'
       preLoaderRoute: typeof AdminAccessIndexRouteImport
-      parentRoute: typeof AdminAccessRouteRoute
-    }
-    '/api/auth/$': {
-      id: '/api/auth/$'
-      path: '/api/auth/$'
-      fullPath: '/api/auth/$'
-      preLoaderRoute: typeof ApiAuthSplatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/webhooks/records': {
-      id: '/admin/webhooks/records'
-      path: '/records'
-      fullPath: '/admin/webhooks/records'
-      preLoaderRoute: typeof AdminWebhooksRecordsRouteImport
-      parentRoute: typeof AdminWebhooksRouteRoute
-    }
-    '/admin/webhooks/provider-events': {
-      id: '/admin/webhooks/provider-events'
-      path: '/provider-events'
-      fullPath: '/admin/webhooks/provider-events'
-      preLoaderRoute: typeof AdminWebhooksProviderEventsRouteImport
-      parentRoute: typeof AdminWebhooksRouteRoute
-    }
-    '/admin/webhooks/inbound-records': {
-      id: '/admin/webhooks/inbound-records'
-      path: '/inbound-records'
-      fullPath: '/admin/webhooks/inbound-records'
-      preLoaderRoute: typeof AdminWebhooksInboundRecordsRouteImport
-      parentRoute: typeof AdminWebhooksRouteRoute
-    }
-    '/admin/telegram/notifications': {
-      id: '/admin/telegram/notifications'
-      path: '/notifications'
-      fullPath: '/admin/telegram/notifications'
-      preLoaderRoute: typeof AdminTelegramNotificationsRouteImport
-      parentRoute: typeof AdminTelegramRouteRoute
-    }
-    '/admin/telegram/commands': {
-      id: '/admin/telegram/commands'
-      path: '/commands'
-      fullPath: '/admin/telegram/commands'
-      preLoaderRoute: typeof AdminTelegramCommandsRouteImport
-      parentRoute: typeof AdminTelegramRouteRoute
-    }
-    '/admin/settings/webhooks': {
-      id: '/admin/settings/webhooks'
-      path: '/webhooks'
-      fullPath: '/admin/settings/webhooks'
-      preLoaderRoute: typeof AdminSettingsWebhooksRouteImport
-      parentRoute: typeof AdminSettingsRouteRoute
-    }
-    '/admin/settings/secrets': {
-      id: '/admin/settings/secrets'
-      path: '/secrets'
-      fullPath: '/admin/settings/secrets'
-      preLoaderRoute: typeof AdminSettingsSecretsRouteImport
-      parentRoute: typeof AdminSettingsRouteRoute
-    }
-    '/admin/settings/scanning': {
-      id: '/admin/settings/scanning'
-      path: '/scanning'
-      fullPath: '/admin/settings/scanning'
-      preLoaderRoute: typeof AdminSettingsScanningRouteImport
-      parentRoute: typeof AdminSettingsRouteRoute
-    }
-    '/admin/settings/retention': {
-      id: '/admin/settings/retention'
-      path: '/retention'
-      fullPath: '/admin/settings/retention'
-      preLoaderRoute: typeof AdminSettingsRetentionRouteImport
-      parentRoute: typeof AdminSettingsRouteRoute
-    }
-    '/admin/settings/payment': {
-      id: '/admin/settings/payment'
-      path: '/payment'
-      fullPath: '/admin/settings/payment'
-      preLoaderRoute: typeof AdminSettingsPaymentRouteImport
-      parentRoute: typeof AdminSettingsRouteRoute
-    }
-    '/admin/settings/orders': {
-      id: '/admin/settings/orders'
-      path: '/orders'
-      fullPath: '/admin/settings/orders'
-      preLoaderRoute: typeof AdminSettingsOrdersRouteImport
-      parentRoute: typeof AdminSettingsRouteRoute
-    }
-    '/admin/settings/auth': {
-      id: '/admin/settings/auth'
-      path: '/auth'
-      fullPath: '/admin/settings/auth'
-      preLoaderRoute: typeof AdminSettingsAuthRouteImport
-      parentRoute: typeof AdminSettingsRouteRoute
-    }
-    '/admin/settings/access': {
-      id: '/admin/settings/access'
-      path: '/access'
-      fullPath: '/admin/settings/access'
-      preLoaderRoute: typeof AdminSettingsAccessRouteImport
-      parentRoute: typeof AdminSettingsRouteRoute
-    }
-    '/admin/payment-settings/rates': {
-      id: '/admin/payment-settings/rates'
-      path: '/rates'
-      fullPath: '/admin/payment-settings/rates'
-      preLoaderRoute: typeof AdminPaymentSettingsRatesRouteImport
-      parentRoute: typeof AdminPaymentSettingsRouteRoute
-    }
-    '/admin/payment-settings/ingresses': {
-      id: '/admin/payment-settings/ingresses'
-      path: '/ingresses'
-      fullPath: '/admin/payment-settings/ingresses'
-      preLoaderRoute: typeof AdminPaymentSettingsIngressesRouteImport
-      parentRoute: typeof AdminPaymentSettingsRouteRoute
-    }
-    '/admin/operations/scheduled': {
-      id: '/admin/operations/scheduled'
-      path: '/scheduled'
-      fullPath: '/admin/operations/scheduled'
-      preLoaderRoute: typeof AdminOperationsScheduledRouteImport
-      parentRoute: typeof AdminOperationsRouteRoute
-    }
-    '/admin/operations/queues': {
-      id: '/admin/operations/queues'
-      path: '/queues'
-      fullPath: '/admin/operations/queues'
-      preLoaderRoute: typeof AdminOperationsQueuesRouteImport
-      parentRoute: typeof AdminOperationsRouteRoute
-    }
-    '/admin/operations/audit-logs': {
-      id: '/admin/operations/audit-logs'
-      path: '/audit-logs'
-      fullPath: '/admin/operations/audit-logs'
-      preLoaderRoute: typeof AdminOperationsAuditLogsRouteImport
-      parentRoute: typeof AdminOperationsRouteRoute
-    }
-    '/admin/access/users': {
-      id: '/admin/access/users'
-      path: '/users'
-      fullPath: '/admin/access/users'
-      preLoaderRoute: typeof AdminAccessUsersRouteImport
-      parentRoute: typeof AdminAccessRouteRoute
-    }
-    '/admin/access/roles': {
-      id: '/admin/access/roles'
-      path: '/roles'
-      fullPath: '/admin/access/roles'
-      preLoaderRoute: typeof AdminAccessRolesRouteImport
-      parentRoute: typeof AdminAccessRouteRoute
-    }
-    '/admin/access/permission-bits': {
-      id: '/admin/access/permission-bits'
-      path: '/permission-bits'
-      fullPath: '/admin/access/permission-bits'
-      preLoaderRoute: typeof AdminAccessPermissionBitsRouteImport
       parentRoute: typeof AdminAccessRouteRoute
     }
     '/admin/access/modules': {
@@ -1384,6 +1190,202 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAccessModulesRouteImport
       parentRoute: typeof AdminAccessRouteRoute
     }
+    '/admin/access/permission-bits': {
+      id: '/admin/access/permission-bits'
+      path: '/permission-bits'
+      fullPath: '/admin/access/permission-bits'
+      preLoaderRoute: typeof AdminAccessPermissionBitsRouteImport
+      parentRoute: typeof AdminAccessRouteRoute
+    }
+    '/admin/access/roles': {
+      id: '/admin/access/roles'
+      path: '/roles'
+      fullPath: '/admin/access/roles'
+      preLoaderRoute: typeof AdminAccessRolesRouteImport
+      parentRoute: typeof AdminAccessRouteRoute
+    }
+    '/admin/access/users': {
+      id: '/admin/access/users'
+      path: '/users'
+      fullPath: '/admin/access/users'
+      preLoaderRoute: typeof AdminAccessUsersRouteImport
+      parentRoute: typeof AdminAccessRouteRoute
+    }
+    '/admin/operations/': {
+      id: '/admin/operations/'
+      path: '/'
+      fullPath: '/admin/operations/'
+      preLoaderRoute: typeof AdminOperationsIndexRouteImport
+      parentRoute: typeof AdminOperationsRouteRoute
+    }
+    '/admin/operations/audit-logs': {
+      id: '/admin/operations/audit-logs'
+      path: '/audit-logs'
+      fullPath: '/admin/operations/audit-logs'
+      preLoaderRoute: typeof AdminOperationsAuditLogsRouteImport
+      parentRoute: typeof AdminOperationsRouteRoute
+    }
+    '/admin/operations/queues': {
+      id: '/admin/operations/queues'
+      path: '/queues'
+      fullPath: '/admin/operations/queues'
+      preLoaderRoute: typeof AdminOperationsQueuesRouteImport
+      parentRoute: typeof AdminOperationsRouteRoute
+    }
+    '/admin/operations/scheduled': {
+      id: '/admin/operations/scheduled'
+      path: '/scheduled'
+      fullPath: '/admin/operations/scheduled'
+      preLoaderRoute: typeof AdminOperationsScheduledRouteImport
+      parentRoute: typeof AdminOperationsRouteRoute
+    }
+    '/admin/payment-settings/': {
+      id: '/admin/payment-settings/'
+      path: '/'
+      fullPath: '/admin/payment-settings/'
+      preLoaderRoute: typeof AdminPaymentSettingsIndexRouteImport
+      parentRoute: typeof AdminPaymentSettingsRouteRoute
+    }
+    '/admin/payment-settings/ingresses': {
+      id: '/admin/payment-settings/ingresses'
+      path: '/ingresses'
+      fullPath: '/admin/payment-settings/ingresses'
+      preLoaderRoute: typeof AdminPaymentSettingsIngressesRouteImport
+      parentRoute: typeof AdminPaymentSettingsRouteRoute
+    }
+    '/admin/payment-settings/rates': {
+      id: '/admin/payment-settings/rates'
+      path: '/rates'
+      fullPath: '/admin/payment-settings/rates'
+      preLoaderRoute: typeof AdminPaymentSettingsRatesRouteImport
+      parentRoute: typeof AdminPaymentSettingsRouteRoute
+    }
+    '/admin/receiving-methods/': {
+      id: '/admin/receiving-methods/'
+      path: '/receiving-methods'
+      fullPath: '/admin/receiving-methods/'
+      preLoaderRoute: typeof AdminReceivingMethodsIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/settings/': {
+      id: '/admin/settings/'
+      path: '/'
+      fullPath: '/admin/settings/'
+      preLoaderRoute: typeof AdminSettingsIndexRouteImport
+      parentRoute: typeof AdminSettingsRouteRoute
+    }
+    '/admin/settings/access': {
+      id: '/admin/settings/access'
+      path: '/access'
+      fullPath: '/admin/settings/access'
+      preLoaderRoute: typeof AdminSettingsAccessRouteImport
+      parentRoute: typeof AdminSettingsRouteRoute
+    }
+    '/admin/settings/auth': {
+      id: '/admin/settings/auth'
+      path: '/auth'
+      fullPath: '/admin/settings/auth'
+      preLoaderRoute: typeof AdminSettingsAuthRouteImport
+      parentRoute: typeof AdminSettingsRouteRoute
+    }
+    '/admin/settings/orders': {
+      id: '/admin/settings/orders'
+      path: '/orders'
+      fullPath: '/admin/settings/orders'
+      preLoaderRoute: typeof AdminSettingsOrdersRouteImport
+      parentRoute: typeof AdminSettingsRouteRoute
+    }
+    '/admin/settings/payment': {
+      id: '/admin/settings/payment'
+      path: '/payment'
+      fullPath: '/admin/settings/payment'
+      preLoaderRoute: typeof AdminSettingsPaymentRouteImport
+      parentRoute: typeof AdminSettingsRouteRoute
+    }
+    '/admin/settings/retention': {
+      id: '/admin/settings/retention'
+      path: '/retention'
+      fullPath: '/admin/settings/retention'
+      preLoaderRoute: typeof AdminSettingsRetentionRouteImport
+      parentRoute: typeof AdminSettingsRouteRoute
+    }
+    '/admin/settings/scanning': {
+      id: '/admin/settings/scanning'
+      path: '/scanning'
+      fullPath: '/admin/settings/scanning'
+      preLoaderRoute: typeof AdminSettingsScanningRouteImport
+      parentRoute: typeof AdminSettingsRouteRoute
+    }
+    '/admin/settings/secrets': {
+      id: '/admin/settings/secrets'
+      path: '/secrets'
+      fullPath: '/admin/settings/secrets'
+      preLoaderRoute: typeof AdminSettingsSecretsRouteImport
+      parentRoute: typeof AdminSettingsRouteRoute
+    }
+    '/admin/settings/webhooks': {
+      id: '/admin/settings/webhooks'
+      path: '/webhooks'
+      fullPath: '/admin/settings/webhooks'
+      preLoaderRoute: typeof AdminSettingsWebhooksRouteImport
+      parentRoute: typeof AdminSettingsRouteRoute
+    }
+    '/admin/telegram/': {
+      id: '/admin/telegram/'
+      path: '/'
+      fullPath: '/admin/telegram/'
+      preLoaderRoute: typeof AdminTelegramIndexRouteImport
+      parentRoute: typeof AdminTelegramRouteRoute
+    }
+    '/admin/telegram/commands': {
+      id: '/admin/telegram/commands'
+      path: '/commands'
+      fullPath: '/admin/telegram/commands'
+      preLoaderRoute: typeof AdminTelegramCommandsRouteImport
+      parentRoute: typeof AdminTelegramRouteRoute
+    }
+    '/admin/telegram/notifications': {
+      id: '/admin/telegram/notifications'
+      path: '/notifications'
+      fullPath: '/admin/telegram/notifications'
+      preLoaderRoute: typeof AdminTelegramNotificationsRouteImport
+      parentRoute: typeof AdminTelegramRouteRoute
+    }
+    '/admin/webhooks/': {
+      id: '/admin/webhooks/'
+      path: '/'
+      fullPath: '/admin/webhooks/'
+      preLoaderRoute: typeof AdminWebhooksIndexRouteImport
+      parentRoute: typeof AdminWebhooksRouteRoute
+    }
+    '/admin/webhooks/inbound-records': {
+      id: '/admin/webhooks/inbound-records'
+      path: '/inbound-records'
+      fullPath: '/admin/webhooks/inbound-records'
+      preLoaderRoute: typeof AdminWebhooksInboundRecordsRouteImport
+      parentRoute: typeof AdminWebhooksRouteRoute
+    }
+    '/admin/webhooks/provider-events': {
+      id: '/admin/webhooks/provider-events'
+      path: '/provider-events'
+      fullPath: '/admin/webhooks/provider-events'
+      preLoaderRoute: typeof AdminWebhooksProviderEventsRouteImport
+      parentRoute: typeof AdminWebhooksRouteRoute
+    }
+    '/admin/webhooks/records': {
+      id: '/admin/webhooks/records'
+      path: '/records'
+      fullPath: '/admin/webhooks/records'
+      preLoaderRoute: typeof AdminWebhooksRecordsRouteImport
+      parentRoute: typeof AdminWebhooksRouteRoute
+    }
+    '/api/auth/$': {
+      id: '/api/auth/$'
+      path: '/api/auth/$'
+      fullPath: '/api/auth/$'
+      preLoaderRoute: typeof ApiAuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/payment-settings/rates/': {
       id: '/admin/payment-settings/rates/'
       path: '/'
@@ -1391,25 +1393,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminPaymentSettingsRatesIndexRouteImport
       parentRoute: typeof AdminPaymentSettingsRatesRoute
     }
-    '/api/telegram/$botId/webhook': {
-      id: '/api/telegram/$botId/webhook'
-      path: '/api/telegram/$botId/webhook'
-      fullPath: '/api/telegram/$botId/webhook'
-      preLoaderRoute: typeof ApiTelegramBotIdWebhookRouteImport
-      parentRoute: typeof rootRouteImport
+    '/admin/payment-settings/rates/fiat': {
+      id: '/admin/payment-settings/rates/fiat'
+      path: '/fiat'
+      fullPath: '/admin/payment-settings/rates/fiat'
+      preLoaderRoute: typeof AdminPaymentSettingsRatesFiatRouteImport
+      parentRoute: typeof AdminPaymentSettingsRatesRoute
     }
-    '/api/providers/okpay/notify': {
-      id: '/api/providers/okpay/notify'
-      path: '/api/providers/okpay/notify'
-      fullPath: '/api/providers/okpay/notify'
-      preLoaderRoute: typeof ApiProvidersOkpayNotifyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/providers/alipay/notify': {
-      id: '/api/providers/alipay/notify'
-      path: '/api/providers/alipay/notify'
-      fullPath: '/api/providers/alipay/notify'
-      preLoaderRoute: typeof ApiProvidersAlipayNotifyRouteImport
+    '/api/checkout/$orderId/review': {
+      id: '/api/checkout/$orderId/review'
+      path: '/api/checkout/$orderId/review'
+      fullPath: '/api/checkout/$orderId/review'
+      preLoaderRoute: typeof ApiCheckoutOrderIdReviewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/providers/alchemy/$sourceId': {
@@ -1419,32 +1414,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiProvidersAlchemySourceIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/checkout/$orderId/review': {
-      id: '/api/checkout/$orderId/review'
-      path: '/api/checkout/$orderId/review'
-      fullPath: '/api/checkout/$orderId/review'
-      preLoaderRoute: typeof ApiCheckoutOrderIdReviewRouteImport
+    '/api/providers/alipay/notify': {
+      id: '/api/providers/alipay/notify'
+      path: '/api/providers/alipay/notify'
+      fullPath: '/api/providers/alipay/notify'
+      preLoaderRoute: typeof ApiProvidersAlipayNotifyRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin/payment-settings/rates/fiat': {
-      id: '/admin/payment-settings/rates/fiat'
-      path: '/fiat'
-      fullPath: '/admin/payment-settings/rates/fiat'
-      preLoaderRoute: typeof AdminPaymentSettingsRatesFiatRouteImport
-      parentRoute: typeof AdminPaymentSettingsRatesRoute
-    }
-    '/payments/gmpay/v1/order/query': {
-      id: '/payments/gmpay/v1/order/query'
-      path: '/payments/gmpay/v1/order/query'
-      fullPath: '/payments/gmpay/v1/order/query'
-      preLoaderRoute: typeof PaymentsGmpayV1OrderQueryRouteImport
+    '/api/providers/okpay/notify': {
+      id: '/api/providers/okpay/notify'
+      path: '/api/providers/okpay/notify'
+      fullPath: '/api/providers/okpay/notify'
+      preLoaderRoute: typeof ApiProvidersOkpayNotifyRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/payments/gmpay/v1/order/create-transaction': {
-      id: '/payments/gmpay/v1/order/create-transaction'
-      path: '/payments/gmpay/v1/order/create-transaction'
-      fullPath: '/payments/gmpay/v1/order/create-transaction'
-      preLoaderRoute: typeof PaymentsGmpayV1OrderCreateTransactionRouteImport
+    '/api/telegram/$botId/webhook': {
+      id: '/api/telegram/$botId/webhook'
+      path: '/api/telegram/$botId/webhook'
+      fullPath: '/api/telegram/$botId/webhook'
+      preLoaderRoute: typeof ApiTelegramBotIdWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/admin/payment-reviews/$reviewId/evidence': {
@@ -1454,11 +1442,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminPaymentReviewsReviewIdEvidenceRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/payments/epay/v1/order/create-transaction/submit.php': {
-      id: '/payments/epay/v1/order/create-transaction/submit.php'
-      path: '/payments/epay/v1/order/create-transaction/submit.php'
-      fullPath: '/payments/epay/v1/order/create-transaction/submit.php'
-      preLoaderRoute: typeof PaymentsEpayV1OrderCreateTransactionSubmitDotphpRouteImport
+    '/payments/gmpay/v1/order/create-transaction': {
+      id: '/payments/gmpay/v1/order/create-transaction'
+      path: '/payments/gmpay/v1/order/create-transaction'
+      fullPath: '/payments/gmpay/v1/order/create-transaction'
+      preLoaderRoute: typeof PaymentsGmpayV1OrderCreateTransactionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/payments/gmpay/v1/order/query': {
+      id: '/payments/gmpay/v1/order/query'
+      path: '/payments/gmpay/v1/order/query'
+      fullPath: '/payments/gmpay/v1/order/query'
+      preLoaderRoute: typeof PaymentsGmpayV1OrderQueryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/payments/epay/v1/order/create-transaction/api.php': {
+      id: '/payments/epay/v1/order/create-transaction/api.php'
+      path: '/payments/epay/v1/order/create-transaction/api.php'
+      fullPath: '/payments/epay/v1/order/create-transaction/api.php'
+      preLoaderRoute: typeof PaymentsEpayV1OrderCreateTransactionApiDotphpRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/payments/epay/v1/order/create-transaction/mapi.php': {
@@ -1468,11 +1470,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PaymentsEpayV1OrderCreateTransactionMapiDotphpRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/payments/epay/v1/order/create-transaction/api.php': {
-      id: '/payments/epay/v1/order/create-transaction/api.php'
-      path: '/payments/epay/v1/order/create-transaction/api.php'
-      fullPath: '/payments/epay/v1/order/create-transaction/api.php'
-      preLoaderRoute: typeof PaymentsEpayV1OrderCreateTransactionApiDotphpRouteImport
+    '/payments/epay/v1/order/create-transaction/submit.php': {
+      id: '/payments/epay/v1/order/create-transaction/submit.php'
+      path: '/payments/epay/v1/order/create-transaction/submit.php'
+      fullPath: '/payments/epay/v1/order/create-transaction/submit.php'
+      preLoaderRoute: typeof PaymentsEpayV1OrderCreateTransactionSubmitDotphpRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -1694,8 +1696,8 @@ const rootRouteChildren: RootRouteChildren = {
   CheckoutOrderIdRoute: CheckoutOrderIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiCheckoutOrderIdReviewRoute: ApiCheckoutOrderIdReviewRoute,
-  ApiProvidersAlipayNotifyRoute: ApiProvidersAlipayNotifyRoute,
   ApiProvidersAlchemySourceIdRoute: ApiProvidersAlchemySourceIdRoute,
+  ApiProvidersAlipayNotifyRoute: ApiProvidersAlipayNotifyRoute,
   ApiProvidersOkpayNotifyRoute: ApiProvidersOkpayNotifyRoute,
   ApiTelegramBotIdWebhookRoute: ApiTelegramBotIdWebhookRoute,
   ApiAdminPaymentReviewsReviewIdEvidenceRoute:

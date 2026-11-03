@@ -16,6 +16,12 @@ type Option = NonNullable<
 	Awaited<ReturnType<typeof listCheckoutPaymentOptionsFn>>
 >["options"][number];
 type RailKind = Option["railKind"];
+type AlipayEnvironment = NonNullable<Option["alipayEnvironment"]>;
+type AlipayProduct = NonNullable<Option["alipayProduct"]>;
+type AlipayOption = Option & {
+	alipayEnvironment: AlipayEnvironment;
+	alipayProduct: AlipayProduct;
+};
 
 export function SelectPaymentOptionPanel({
 	busy,
@@ -43,6 +49,12 @@ export function SelectPaymentOptionPanel({
 	const [selectedReceivingMethodId, setSelectedReceivingMethodId] =
 		useState("");
 	const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState("");
+	const [selectedAlipayEnvironment, setSelectedAlipayEnvironment] = useState<
+		AlipayEnvironment | ""
+	>("");
+	const [selectedAlipayProduct, setSelectedAlipayProduct] = useState<
+		AlipayProduct | ""
+	>("");
 
 	const kinds = [...new Set(options.map((option) => option.railKind))];
 	const kind = kinds.find((value) => value === selectedKind) ?? kinds[0] ?? "";
@@ -65,17 +77,53 @@ export function SelectPaymentOptionPanel({
 	)
 		? selectedReceivingMethodId
 		: (receivingMethods[0]?.id ?? "");
-	const assets = kindOptions.filter(
+	const paymentMethodOptions = kindOptions.filter(
 		(option) => option.receivingMethodId === receivingMethodId,
+	);
+	const assets = Array.from(
+		new Map(
+			paymentMethodOptions.map((option) => [option.paymentMethodId, option]),
+		).values(),
 	);
 	const paymentMethodId = assets.some(
 		(asset) => asset.paymentMethodId === selectedPaymentMethodId,
 	)
 		? selectedPaymentMethodId
 		: (assets[0]?.paymentMethodId ?? "");
-	const selected = assets.find(
+	const selectedAssetOptions = paymentMethodOptions.filter(
 		(option) => option.paymentMethodId === paymentMethodId,
 	);
+	const alipayOptions = selectedAssetOptions.filter(
+		(option): option is AlipayOption =>
+			typeof option.alipayEnvironment === "string" &&
+			typeof option.alipayProduct === "string",
+	);
+	const alipayEnvironments = [
+		...new Set(alipayOptions.map((option) => option.alipayEnvironment)),
+	];
+	const alipayEnvironment =
+		alipayEnvironments.find((value) => value === selectedAlipayEnvironment) ??
+		(alipayEnvironments.includes("production")
+			? "production"
+			: (alipayEnvironments[0] ?? ""));
+	const alipayProducts = [
+		...new Set(
+			alipayOptions
+				.filter((option) => option.alipayEnvironment === alipayEnvironment)
+				.map((option) => option.alipayProduct),
+		),
+	];
+	const alipayProduct =
+		alipayProducts.find((value) => value === selectedAlipayProduct) ??
+		(alipayProducts.includes("website")
+			? "website"
+			: (alipayProducts[0] ?? ""));
+	const selected =
+		alipayOptions.find(
+			(option) =>
+				option.alipayEnvironment === alipayEnvironment &&
+				option.alipayProduct === alipayProduct,
+		) ?? selectedAssetOptions[0];
 
 	return (
 		<section className="w-full pb-4">
@@ -122,6 +170,8 @@ export function SelectPaymentOptionPanel({
 										setSelectedKind(value);
 										setSelectedReceivingMethodId("");
 										setSelectedPaymentMethodId("");
+										setSelectedAlipayEnvironment("");
+										setSelectedAlipayProduct("");
 									}}
 									variant={kind === value ? "default" : "outline"}
 								>
@@ -141,6 +191,8 @@ export function SelectPaymentOptionPanel({
 								onValueChange={(value) => {
 									setSelectedReceivingMethodId(value);
 									setSelectedPaymentMethodId("");
+									setSelectedAlipayEnvironment("");
+									setSelectedAlipayProduct("");
 								}}
 								value={receivingMethodId}
 							>
@@ -165,7 +217,11 @@ export function SelectPaymentOptionPanel({
 							</p>
 							<Select
 								disabled={!assets.length}
-								onValueChange={setSelectedPaymentMethodId}
+								onValueChange={(value) => {
+									setSelectedPaymentMethodId(value);
+									setSelectedAlipayEnvironment("");
+									setSelectedAlipayProduct("");
+								}}
 								value={paymentMethodId}
 							>
 								<SelectTrigger className="h-12.5 w-full rounded-xl bg-card">
@@ -188,6 +244,73 @@ export function SelectPaymentOptionPanel({
 							</Select>
 						</div>
 					</div>
+					{alipayEnvironments.length > 1 || alipayProducts.length > 1 ? (
+						<div
+							className={`mb-4 grid gap-2 ${
+								alipayEnvironments.length > 1 && alipayProducts.length > 1
+									? "grid-cols-2"
+									: "grid-cols-1"
+							}`}
+						>
+							{alipayEnvironments.length > 1 ? (
+								<div className="min-w-0">
+									<p className="mb-1.5 font-semibold text-muted-foreground text-xs uppercase tracking-wider">
+										{m.payment_alipay_environment()}
+									</p>
+									<Select
+										onValueChange={(value) => {
+											setSelectedAlipayEnvironment(
+												value === "sandbox" ? "sandbox" : "production",
+											);
+											setSelectedAlipayProduct("");
+										}}
+										value={alipayEnvironment}
+									>
+										<SelectTrigger className="h-12.5 w-full rounded-xl bg-card">
+											<SelectValue />
+										</SelectTrigger>
+										<SelectContent position="popper">
+											{alipayEnvironments.map((environment) => (
+												<SelectItem key={environment} value={environment}>
+													{environment === "sandbox"
+														? m.payment_alipay_sandbox()
+														: m.payment_alipay_production()}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</div>
+							) : null}
+							{alipayProducts.length > 1 ? (
+								<div className="min-w-0">
+									<p className="mb-1.5 font-semibold text-muted-foreground text-xs uppercase tracking-wider">
+										{m.payment_alipay_product()}
+									</p>
+									<Select
+										onValueChange={(value) =>
+											setSelectedAlipayProduct(
+												value === "face_to_face" ? "face_to_face" : "website",
+											)
+										}
+										value={alipayProduct}
+									>
+										<SelectTrigger className="h-12.5 w-full rounded-xl bg-card">
+											<SelectValue />
+										</SelectTrigger>
+										<SelectContent position="popper">
+											{alipayProducts.map((product) => (
+												<SelectItem key={product} value={product}>
+													{product === "face_to_face"
+														? m.payment_alipay_face_to_face()
+														: m.payment_alipay_website()}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</div>
+							) : null}
+						</div>
+					) : null}
 					<Button
 						className="h-12 w-full rounded-xl text-base"
 						disabled={busy || !selected}

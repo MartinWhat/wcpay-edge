@@ -8,6 +8,7 @@ import { SelectPaymentOptionPanel } from "#/features/checkout/components/select-
 (
 	globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
+HTMLElement.prototype.scrollIntoView ??= () => {};
 
 type Option = Parameters<typeof SelectPaymentOptionPanel>[0]["options"][number];
 
@@ -57,6 +58,27 @@ describe("checkout payment option panel", () => {
 		expect(onConfirm).toHaveBeenLastCalledWith(chain);
 	});
 
+	it("confirms the selected Alipay product without duplicating its currency", async () => {
+		const onConfirm = vi.fn();
+		const website = alipayOption("website");
+		const faceToFace = alipayOption("face_to_face");
+		await renderPanel([website, faceToFace], onConfirm);
+
+		const selectors =
+			container?.querySelectorAll<HTMLElement>('[role="combobox"]');
+		expect(selectors).toHaveLength(3);
+		await act(async () => selectors?.[2]?.click());
+
+		const productOption = [
+			...document.querySelectorAll<HTMLElement>('[role="option"]'),
+		].find((item) => item.textContent === "Face-to-face payment");
+		if (!productOption) throw new Error("Alipay product option not rendered");
+		await act(async () => productOption.click());
+		await click("Confirm");
+
+		expect(onConfirm).toHaveBeenLastCalledWith(faceToFace);
+	});
+
 	async function click(label: string) {
 		const button = [...(container?.querySelectorAll("button") ?? [])].find(
 			(candidate) => candidate.textContent === label,
@@ -97,5 +119,21 @@ function option(
 		railKind,
 		amount: "12.5",
 		current: false,
+	};
+}
+
+function alipayOption(product: "website" | "face_to_face"): Option {
+	return {
+		receivingMethodId: "receiving-alipay",
+		receivingMethodName: "Alipay",
+		paymentMethodId: "alipay-cny",
+		asset: "CNY",
+		network: "alipay",
+		networkName: "Alipay",
+		railKind: "fiat",
+		amount: "12.5",
+		current: false,
+		alipayEnvironment: "production",
+		alipayProduct: product,
 	};
 }
