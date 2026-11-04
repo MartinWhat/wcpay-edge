@@ -69,7 +69,7 @@ describe("Webhook queue consumer on D1", () => {
 			attempt_count: 1,
 		});
 
-		const second = fakeMessage("delivery-retry", 2);
+		const second = fakeMessage("delivery-retry", 1, 2);
 		await processWebhookMessage(
 			db,
 			second.message,
@@ -269,39 +269,29 @@ describe("Webhook queue consumer on D1", () => {
 		).toBe(true);
 	});
 
-	it("uses D1 application attempts beyond a single Cloudflare message retry", async () => {
+	it("uses D1 attempts while retrying the same Queue message", async () => {
 		const first = fakeMessage("delivery-app-retry", 1);
-		const send = vi.fn().mockResolvedValue(undefined);
+		const startedAt = Date.now();
 		await processWebhookMessage(
 			db,
 			first.message,
 			vi.fn().mockResolvedValue(new Response("no", { status: 500 })),
-			{ send } as unknown as Pick<Queue<WebhookQueueMessage>, "send">,
 		);
-		expect(first.ack).toHaveBeenCalledOnce();
-		expect(first.retry).not.toHaveBeenCalled();
-		expect(send).toHaveBeenCalledWith(
-			{
-				kind: "webhook.delivery",
-				version: 1,
-				deliveryId: "delivery-app-retry",
-				eventId: "event-app-retry",
-				attempt: 2,
-			},
-			{ delaySeconds: 15 },
-		);
+		expect(first.ack).not.toHaveBeenCalled();
+		expect(first.retry).toHaveBeenCalledWith({ delaySeconds: 15 });
 		await expect(delivery(db, "delivery-app-retry")).resolves.toMatchObject({
 			status: "failed",
 			attempt_count: 1,
 		});
+		expect(
+			Number((await delivery(db, "delivery-app-retry"))?.next_attempt_at),
+		).toBeGreaterThanOrEqual(startedAt + 15_000 + 5 * 60_000);
 
-		const second = fakeMessage("delivery-app-retry", 1);
-		second.message.body.attempt = 2;
+		const second = fakeMessage("delivery-app-retry", 1, 2);
 		await processWebhookMessage(
 			db,
 			second.message,
 			vi.fn().mockResolvedValue(new Response("ok", { status: 200 })),
-			{ send } as unknown as Pick<Queue<WebhookQueueMessage>, "send">,
 		);
 		expect(second.ack).toHaveBeenCalledOnce();
 		await expect(delivery(db, "delivery-app-retry")).resolves.toMatchObject({
@@ -310,28 +300,41 @@ describe("Webhook queue consumer on D1", () => {
 		});
 	});
 
-	it("keeps a failed delivery due in D1 when the follow-up Queue send fails", async () => {
+	it("persists an outbox lease while retrying the current Queue message", async () => {
 		const queued = fakeMessage("delivery-queue-send-failure", 1);
-		const send = vi.fn().mockRejectedValue(new Error("Queue unavailable"));
 		const startedAt = Date.now();
 		await processWebhookMessage(
 			db,
 			queued.message,
 			vi.fn().mockResolvedValue(new Response("failure", { status: 500 })),
-			{ send } as unknown as Pick<Queue<WebhookQueueMessage>, "send">,
 		);
 
-		expect(send).toHaveBeenCalledOnce();
-		expect(queued.ack).toHaveBeenCalledOnce();
-		expect(queued.retry).not.toHaveBeenCalled();
+		expect(queued.ack).not.toHaveBeenCalled();
+		expect(queued.retry).toHaveBeenCalledWith({ delaySeconds: 15 });
 		const current = await delivery(db, "delivery-queue-send-failure");
 		expect(current).toMatchObject({ status: "failed", attempt_count: 1 });
 		expect(Number(current?.next_attempt_at)).toBeGreaterThanOrEqual(
-			startedAt + 15_000,
+			startedAt + 15_000 + 5 * 60_000,
 		);
-		expect(Number(current?.next_attempt_at)).toBeLessThan(
-			startedAt + 5 * 60_000,
+	});
+
+	it("acks an exhausted Queue retry and leaves the next attempt for the outbox", async () => {
+		await seedDelivery(db, "queue-exhausted", "queued", 0, null);
+		const message = fakeMessage("delivery-queue-exhausted", 1, 4);
+		message.message.body.eventId = "event-queue-exhausted";
+		await processWebhookMessage(
+			db,
+			message.message,
+			vi.fn().mockResolvedValue(new Response("failure", { status: 500 })),
 		);
+		expect(message.ack).toHaveBeenCalledOnce();
+		expect(message.retry).not.toHaveBeenCalled();
+		const current = await delivery(db, "delivery-queue-exhausted");
+		expect(current).toMatchObject({ status: "failed", attempt_count: 1 });
+		expect(Number(current?.next_attempt_at)).toBeGreaterThanOrEqual(
+			Date.now() + 10_000,
+		);
+		expect(Number(current?.next_attempt_at)).toBeLessThan(Date.now() + 60_000);
 	});
 
 	it("moves the eighth failed attempt to dead letter state", async () => {
@@ -369,36 +372,79 @@ describe("Webhook queue consumer on D1", () => {
 		).resolves.toMatchObject({ status: "dead", attempt_count: 2 });
 	});
 
-	it("can continue application retries beyond the Cloudflare retry limit", async () => {
+	it("continues D1 application attempts after an outbox redrive", async () => {
 		await db
 			.prepare(
 				"UPDATE system_settings SET value = '12' WHERE key = 'webhooks.max_attempts'",
 			)
 			.run();
-		const ninth = fakeMessage("delivery-high-attempt", 1);
-		ninth.message.body.attempt = 9;
-		const send = vi.fn().mockResolvedValue(undefined);
+		const ninth = fakeMessage("delivery-high-attempt", 9);
 		await processWebhookMessage(
 			db,
 			ninth.message,
 			vi.fn().mockResolvedValue(new Response("failure", { status: 500 })),
-			{ send } as unknown as Pick<Queue<WebhookQueueMessage>, "send">,
 		);
-		expect(ninth.ack).toHaveBeenCalledOnce();
-		expect(send).toHaveBeenCalledWith(
-			{
-				kind: "webhook.delivery",
-				version: 1,
-				deliveryId: "delivery-high-attempt",
-				eventId: "event-high-attempt",
-				attempt: 10,
-			},
-			{ delaySeconds: 3600 },
-		);
+		expect(ninth.ack).not.toHaveBeenCalled();
+		expect(ninth.retry).toHaveBeenCalledWith({ delaySeconds: 3600 });
 		await expect(delivery(db, "delivery-high-attempt")).resolves.toMatchObject({
 			status: "failed",
 			attempt_count: 9,
 		});
+	});
+
+	it("continues D1 retries after the Queue retry limit via the outbox", async () => {
+		await db
+			.prepare(
+				"UPDATE system_settings SET value = '12' WHERE key = 'webhooks.max_attempts'",
+			)
+			.run();
+		await seedDelivery(db, "queue-limit-redrive", "queued", 0, null);
+		const message = fakeMessage("delivery-queue-limit-redrive", 1);
+		message.message.body.eventId = "event-queue-limit-redrive";
+		const fail = vi
+			.fn()
+			.mockResolvedValue(new Response("failure", { status: 500 }));
+		for (const queueAttempt of [1, 2, 3, 4]) {
+			message.message.attempts = queueAttempt;
+			await processWebhookMessage(db, message.message, fail);
+		}
+		expect(fail).toHaveBeenCalledTimes(4);
+		expect(message.retry).toHaveBeenCalledTimes(3);
+		expect(message.ack).toHaveBeenCalledOnce();
+		await expect(
+			delivery(db, "delivery-queue-limit-redrive"),
+		).resolves.toMatchObject({ status: "failed", attempt_count: 4 });
+
+		const nextAttemptAt = Number(
+			(await delivery(db, "delivery-queue-limit-redrive"))?.next_attempt_at,
+		);
+		const send = vi.fn().mockResolvedValue(undefined);
+		await recoverWebhookOutbox(
+			{ DB: db, WEBHOOK_QUEUE: { send } } as unknown as Pick<
+				Env,
+				"DB" | "WEBHOOK_QUEUE"
+			>,
+			nextAttemptAt,
+		);
+		expect(send).toHaveBeenCalledWith({
+			kind: "webhook.delivery",
+			version: 1,
+			deliveryId: "delivery-queue-limit-redrive",
+			eventId: "event-queue-limit-redrive",
+			attempt: 5,
+		});
+
+		const redriven = fakeMessage("delivery-queue-limit-redrive", 5);
+		redriven.message.body.eventId = "event-queue-limit-redrive";
+		await processWebhookMessage(
+			db,
+			redriven.message,
+			vi.fn().mockResolvedValue(new Response("ok", { status: 200 })),
+		);
+		expect(redriven.ack).toHaveBeenCalledOnce();
+		await expect(
+			delivery(db, "delivery-queue-limit-redrive"),
+		).resolves.toMatchObject({ status: "succeeded", attempt_count: 5 });
 	});
 
 	it("allows only one concurrent worker to deliver the same attempt", async () => {
@@ -420,6 +466,12 @@ describe("Webhook queue consumer on D1", () => {
 
 	it("atomically claims a manual retry and releases it as due", async () => {
 		const now = Date.now();
+		await db
+			.prepare(
+				"UPDATE webhook_deliveries SET status = 'failed', next_attempt_at = NULL, completed_at = NULL, updated_at = ? WHERE id = 'delivery-manual'",
+			)
+			.bind(now)
+			.run();
 		const claims = await Promise.all([
 			claimManualWebhookRetry(db, "delivery-manual", 3, now),
 			claimManualWebhookRetry(db, "delivery-manual", 3, now),
@@ -443,10 +495,24 @@ describe("Webhook queue consumer on D1", () => {
 	});
 
 	it("recovers persisted queued deliveries without putting secrets in Queue", async () => {
+		const now = Date.now();
 		await db
 			.prepare(
-				"UPDATE webhook_deliveries SET status = 'dead' WHERE id = 'delivery-manual'",
+				`UPDATE webhook_deliveries
+				 SET status = CASE
+				   WHEN id = 'delivery-manual' THEN 'dead'
+				   WHEN id = 'delivery-outbox' THEN 'queued'
+				   WHEN id = 'delivery-outbox-failed' THEN 'failed'
+				   ELSE status END,
+				 next_attempt_at = CASE
+				   WHEN id IN ('delivery-manual', 'delivery-outbox') THEN NULL
+				   WHEN id = 'delivery-outbox-failed' THEN 0
+				   ELSE next_attempt_at END,
+				 completed_at = CASE WHEN id = 'delivery-manual' THEN NULL ELSE completed_at END,
+				 updated_at = ?
+				 WHERE id IN ('delivery-manual', 'delivery-outbox', 'delivery-outbox-failed')`,
 			)
+			.bind(now)
 			.run();
 		const send = vi.fn().mockResolvedValue(undefined);
 		const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
@@ -458,7 +524,7 @@ describe("Webhook queue consumer on D1", () => {
 						Env,
 						"DB" | "WEBHOOK_QUEUE"
 					>,
-					Date.now(),
+					now,
 				),
 			).resolves.toMatchObject({ queued: 2, failed: 0 });
 			recoveryRecord = JSON.parse(String(info.mock.calls[0]?.[0]));
@@ -502,10 +568,12 @@ describe("Webhook queue consumer on D1", () => {
 	});
 
 	it("leases an outbox row before sending so concurrent recovery queues once", async () => {
+		const now = Date.now();
 		await db
 			.prepare(
-				"UPDATE webhook_deliveries SET status = 'queued', next_attempt_at = NULL WHERE id = 'delivery-outbox'",
+				"UPDATE webhook_deliveries SET status = 'queued', attempt_count = 0, next_attempt_at = NULL, completed_at = NULL, updated_at = ? WHERE id = 'delivery-outbox'",
 			)
+			.bind(now)
 			.run();
 		const send = vi.fn(async () => {
 			await new Promise((resolve) => setTimeout(resolve, 10));
@@ -515,8 +583,8 @@ describe("Webhook queue consumer on D1", () => {
 			WEBHOOK_QUEUE: { send },
 		} as unknown as Pick<Env, "DB" | "WEBHOOK_QUEUE">;
 		const [first, second] = await Promise.all([
-			recoverWebhookOutbox(env, Date.now()),
-			recoverWebhookOutbox(env, Date.now()),
+			recoverWebhookOutbox(env, now),
+			recoverWebhookOutbox(env, now),
 		]);
 		expect(first.queued + second.queued).toBe(1);
 		expect(send).toHaveBeenCalledOnce();
@@ -658,7 +726,7 @@ describe("Webhook queue consumer on D1", () => {
 		const fetcher = vi.fn();
 		const first = fakeMessage("delivery-transient", 1);
 		first.message.body.eventId = "event-transient";
-		await processWebhookMessage(db, first.message, fetcher, undefined, {
+		await processWebhookMessage(db, first.message, fetcher, {
 			resolveHostname: dnsFailure,
 		});
 		expect(fetcher).not.toHaveBeenCalled();
@@ -677,7 +745,7 @@ describe("Webhook queue consumer on D1", () => {
 			.run();
 		const second = fakeMessage("delivery-transient", 2);
 		second.message.body.eventId = "event-transient";
-		await processWebhookMessage(db, second.message, fetcher, undefined, {
+		await processWebhookMessage(db, second.message, fetcher, {
 			resolveHostname: dnsFailure,
 		});
 		expect(second.retry).toHaveBeenCalledWith({ delaySeconds: 15 });
@@ -690,7 +758,7 @@ describe("Webhook queue consumer on D1", () => {
 		// A hostname that resolves privately is a configuration failure and is recorded.
 		const third = fakeMessage("delivery-transient", 2);
 		third.message.body.eventId = "event-transient";
-		await processWebhookMessage(db, third.message, fetcher, undefined, {
+		await processWebhookMessage(db, third.message, fetcher, {
 			resolveHostname: vi.fn().mockResolvedValue(["10.0.0.8"]),
 		});
 		expect(fetcher).not.toHaveBeenCalled();
@@ -830,7 +898,7 @@ describe("Webhook queue consumer on D1", () => {
 	);
 });
 
-function fakeMessage(deliveryId: string, attempts: number) {
+function fakeMessage(deliveryId: string, attempt: number, queueAttempts = 1) {
 	const ack = vi.fn();
 	const retry = vi.fn();
 	const body: WebhookQueueMessage = {
@@ -850,15 +918,15 @@ function fakeMessage(deliveryId: string, attempts: number) {
 				"delivery-gmpay": "event-gmpay",
 				"delivery-epay": "event-epay",
 			}[deliveryId] ?? "event",
-		attempt: attempts,
+		attempt,
 	};
 	return {
 		ack,
 		retry,
 		message: {
 			body,
-			attempts,
-			id: `request-${deliveryId}-${attempts}`,
+			attempts: queueAttempts,
+			id: `request-${deliveryId}-${queueAttempts}`,
 			ack,
 			retry,
 		} satisfies WebhookQueueMessageLike,
@@ -1014,12 +1082,12 @@ async function seed(db: D1Database) {
 			.bind(now, now),
 		db
 			.prepare(
-				"INSERT INTO webhook_deliveries (id, event_id, order_id, api_key_id, status, attempt_count, created_at, updated_at) VALUES ('delivery-dead', 'event-dead', 'order-webhook', 'api-key', 'queued', 0, ?, ?)",
+				"INSERT INTO webhook_deliveries (id, event_id, order_id, api_key_id, status, attempt_count, created_at, updated_at) VALUES ('delivery-dead', 'event-dead', 'order-webhook', 'api-key', 'failed', 7, ?, ?)",
 			)
 			.bind(now, now),
 		db
 			.prepare(
-				"INSERT INTO webhook_deliveries (id, event_id, order_id, api_key_id, status, attempt_count, created_at, updated_at) VALUES ('delivery-configured-dead', 'event-configured-dead', 'order-webhook', 'api-key', 'queued', 0, ?, ?)",
+				"INSERT INTO webhook_deliveries (id, event_id, order_id, api_key_id, status, attempt_count, created_at, updated_at) VALUES ('delivery-configured-dead', 'event-configured-dead', 'order-webhook', 'api-key', 'failed', 1, ?, ?)",
 			)
 			.bind(now, now),
 		db

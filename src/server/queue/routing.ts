@@ -26,6 +26,8 @@ export async function handleQueue(
 	const concurrency = queueProcessingConcurrency(batch.queue);
 	const trackedMessages = messages.map(trackQueueMessage);
 	let failedMessages = 0;
+	let webhookErrorMessages = 0;
+	const webhookErrorCodes: Record<string, number> = {};
 	try {
 		const kinds = messages.map((message) => queueMessageKind(message.body));
 		const expectedKind = queueExpectedMessageKind(batch.queue);
@@ -47,12 +49,20 @@ export async function handleQueue(
 					.slice(index, index + concurrency)
 					.map(async ({ message, disposition }) => {
 						try {
-							await processQueueMessage(message, env, {
+							const result = await processQueueMessage(message, env, {
 								settings,
 								runtime,
 								adapterCache,
 								expectedKind,
 							});
+							if (queueMessageKind(message.body) === "webhook") {
+								const errorCode = queueErrorCode(result);
+								if (errorCode) {
+									webhookErrorMessages += 1;
+									webhookErrorCodes[errorCode] =
+										(webhookErrorCodes[errorCode] ?? 0) + 1;
+								}
+							}
 						} catch (error) {
 							failedMessages += 1;
 							console.error(
@@ -102,6 +112,8 @@ export async function handleQueue(
 				retriedMessages,
 				failedMessages,
 				retryReason: failedMessages ? "consumer_error" : null,
+				webhookErrorMessages,
+				webhookErrorCodes,
 				startedAt,
 				completedAt,
 				durationMs: Math.max(0, completedAt - startedAt),
@@ -109,6 +121,13 @@ export async function handleQueue(
 			}),
 		);
 	}
+}
+
+function queueErrorCode(result: unknown) {
+	if (!isRecord(result) || typeof result.errorCode !== "string") return null;
+	return /^[a-z][a-z0-9_]{0,63}$/.test(result.errorCode)
+		? result.errorCode
+		: null;
 }
 
 function trackQueueMessage(
@@ -214,7 +233,7 @@ async function processQueueMessage(
 			context.settings,
 			context.runtime,
 		]);
-		return processWebhookMessage(env.DB, message, fetch, env.WEBHOOK_QUEUE, {
+		return processWebhookMessage(env.DB, message, fetch, {
 			...(settings ? { settings } : {}),
 			...(runtime ? { runtime } : {}),
 		});

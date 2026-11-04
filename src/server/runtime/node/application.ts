@@ -92,7 +92,7 @@ export async function createNodeApplication(
 	// maxAttempts mirrors Cloudflare: 1 delivery + max_retries from wrangler.jsonc.
 	const webhookConsumer = webhookQueue.createConsumer(consume, {
 		concurrency: 5,
-		maxAttempts: 9,
+		maxAttempts: 4,
 		// Merchant fetch (<= 30s), DoH pre-check, and D1 round trips per message.
 		leaseMs: 120_000,
 		baseRetryDelayMs: 15_000,

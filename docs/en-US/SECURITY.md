@@ -163,11 +163,13 @@
   envelope before dispatch; unknown, malformed, or unsupported messages are
   audited without their body or credentials and acknowledged only after that
   audit succeeds, so poison messages neither loop nor disappear.
-- The D1 attempt counter is authoritative and each failed application attempt
-  schedules a fresh delayed Queue message, so the configurable application
-  maximum is independent of a single Cloudflare message's retry limit.
-  Cron-driven outbox recovery re-enqueues initial queued deliveries, due failed
-  deliveries, and deliveries stranded in `delivering` after their lease expired.
+- The D1 attempt counter is authoritative. Merchant-delivery failures retry the
+  current Queue message with the application backoff; after its three Cloudflare
+  retries are exhausted, D1 outbox recovery creates the next Queue message. This
+  keeps the configurable application maximum independent of one message's retry
+  limit while avoiding a new Queue write for every merchant failure. Cron-driven
+  outbox recovery also re-enqueues initial queued deliveries and deliveries
+  stranded in `delivering` after their lease expired.
   Manual retry continues the attempt numbering and answers `409`
   (`webhook_delivery_retry_in_progress`) while an attempt is scheduled or
   leased.

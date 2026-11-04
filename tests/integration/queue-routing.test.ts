@@ -133,6 +133,7 @@ describe("Cloudflare Queue envelope rejection", () => {
 	});
 
 	it("loads operational and runtime settings once for a valid batch", async () => {
+		const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
 		let settingsQueries = 0;
 		const countedDatabase = {
 			prepare(query: string) {
@@ -156,18 +157,31 @@ describe("Cloudflare Queue envelope rejection", () => {
 			retry: vi.fn(),
 		}));
 
-		await handleQueue(
-			{
-				queue: "wcpay-edge-webhooks",
-				messages,
-			} as unknown as Parameters<typeof handleQueue>[0],
-			{ DB: countedDatabase } as Env,
-		);
+		let records: Array<Record<string, unknown>> = [];
+		try {
+			await handleQueue(
+				{
+					queue: "wcpay-edge-webhooks",
+					messages,
+				} as unknown as Parameters<typeof handleQueue>[0],
+				{ DB: countedDatabase } as Env,
+			);
+			records = info.mock.calls.map(([value]) => JSON.parse(String(value)));
+		} finally {
+			info.mockRestore();
+		}
 
 		expect(settingsQueries).toBe(2);
 		expect(
 			messages.every((message) => message.ack.mock.calls.length === 1),
 		).toBe(true);
+		expect(records).toContainEqual(
+			expect.objectContaining({
+				event: "queue_invocation_completed",
+				webhookErrorMessages: 6,
+				webhookErrorCodes: { delivery_not_claimed: 6 },
+			}),
+		);
 	});
 
 	it("merges duplicate payment scans for the same order and receiving method", async () => {

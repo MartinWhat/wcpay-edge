@@ -179,7 +179,7 @@ docker compose up -d
 - [ ] 同一版本部署 Queue 生产者与消费者；消息必须使用显式的 `webhook.delivery`、`payment.scan` 或 `payment.provider_event` 类型以及 `version: 1`。
 - [ ] 每个已启用的 Alchemy 事件源使用专用 Address Activity Webhook；核对复制的 HTTPS 回调 URL 与 Allowed Host，并确认只有远端类型、网络、URL、启用状态和地址都通过对账后才报告健康。
 - [ ] 在启用入账前完成一次 Alchemy 影子模式低价值演练；检查供应商事件记录，演练一次符合条件的手动重试，并确认重复或内容变化的投递不能创建额外支付事件。
-- [ ] 保持 Worker 崩溃时的 Queue 重试/DLQ 策略；应用级 Webhook 尝试由 D1 独立持久化和调度。
+- [ ] 保持 Worker 崩溃时的 Queue 重试/DLQ 策略；商户投递失败先重试当前消息，Queue 重试预算用尽后由 D1 Outbox 接管，应用级 Webhook 尝试仍由 D1 独立持久化。
 - [ ] 确认 `bun run deploy` 创建或复用 `gmpay-edge`，并在发布前应用 D1 基线；`bun run db:migrate:remote` 仅用于明确的“仅数据库”操作。
 - [ ] 完成 `/install`，生成认证/签名值和默认支付目录，确认检测到的 Origin，将其写入应用地址与 Allowed Hosts，并确认自动登录后台。
 - [ ] 打开“忘记密码”，接收 15 分钟一次性链接并完成重置，确认旧 Session 无法继续认证。

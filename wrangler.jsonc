@@ -5,7 +5,20 @@
 	"compatibility_date": "2026-07-01",
 	"compatibility_flags": ["nodejs_compat"],
 	"placement": { "mode": "smart" },
-	"observability": { "enabled": true },
+	"observability": {
+		"enabled": true,
+		"logs": {
+			"enabled": true,
+			"head_sampling_rate": 1,
+			"invocation_logs": true,
+			"persist": true
+		},
+		"traces": {
+			"enabled": false,
+			"head_sampling_rate": 1,
+			"persist": true
+		}
+	},
 	"cache": { "enabled": true },
 	"d1_databases": [
 		{
@@ -30,7 +43,7 @@
 				"max_batch_size": 10,
 				"max_batch_timeout": 1,
 				"max_concurrency": 5,
-				"max_retries": 8,
+				"max_retries": 3,
 				"retry_delay": 15,
 				"dead_letter_queue": "wcpay-edge-webhooks-dlq"
 			},

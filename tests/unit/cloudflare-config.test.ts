@@ -130,7 +130,7 @@ if (tool === "vite" && args[0] === "build") {
 				max_batch_size: 10,
 				max_batch_timeout: 1,
 				max_concurrency: 5,
-				max_retries: 8,
+				max_retries: 3,
 				retry_delay: 15,
 				dead_letter_queue: "wcpay-edge-webhooks-dlq",
 			},

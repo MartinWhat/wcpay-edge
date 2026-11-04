@@ -65,6 +65,9 @@ status they already persisted rather than relying on freshness of the message.
 - Delivery state and each attempt are persisted in D1.
 - Queue messages contain identifiers, not secrets.
 - Failures use bounded exponential backoff and the configured maximum attempts.
+- Merchant failures retry the current Queue message. When its Cloudflare retry
+  budget is exhausted, the D1 outbox leases and enqueues the next attempt, so
+  application-level retries do not require a new Queue write per failure.
 - Outbox recovery requeues stranded initial and retry deliveries idempotently,
   including a delivery left in `delivering` whose consumer lease expired without
   a recorded outcome; that delivery continues with the next attempt number.

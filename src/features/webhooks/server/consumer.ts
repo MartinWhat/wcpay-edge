@@ -48,6 +48,7 @@ const CLAIM_LEASE_MARGIN_MS = 15_000;
 // Queue redelivery delay for infrastructure failures; the attempt is not consumed.
 const TRANSIENT_RETRY_DELAY_MS = 15_000;
 const ENQUEUE_LEASE_MS = 5 * 60_000;
+const CLOUDFLARE_WEBHOOK_QUEUE_MAX_DELIVERIES = 4;
 
 /** A permanent delivery-configuration failure that consumes an attempt. */
 class WebhookConfigurationError extends Error {
@@ -61,7 +62,6 @@ export async function processWebhookMessage(
 	db: D1Database,
 	message: WebhookQueueMessageLike,
 	fetcher: typeof fetch = fetch,
-	queue?: Pick<Queue<WebhookQueueMessage>, "send">,
 	context: {
 		settings?: Awaited<ReturnType<typeof loadOperationalSettings>>;
 		runtime?: RuntimeConfig;
@@ -69,29 +69,32 @@ export async function processWebhookMessage(
 	} = {},
 ) {
 	const settings = context.settings ?? (await loadOperationalSettings(db));
-	const attempt = message.body.attempt;
 	const startedAt = Date.now();
 	const leaseUntil =
 		startedAt + settings.webhookTimeoutMs + CLAIM_LEASE_MARGIN_MS;
-	const claimed = await db
+	const claim = await db
 		.prepare(
 			`UPDATE webhook_deliveries
-			 SET status = 'delivering', attempt_count = ?, next_attempt_at = ?, updated_at = ?
+			 SET status = 'delivering',
+			 attempt_count = CASE WHEN status = 'delivering' THEN attempt_count ELSE attempt_count + 1 END,
+			 next_attempt_at = ?, updated_at = ?
 			 WHERE id = ? AND (
 			  (status IN ('queued', 'failed') AND attempt_count < ?)
 			  OR (status = 'delivering' AND next_attempt_at <= ?)
-			 )`,
+			 ) AND (status = 'delivering' OR ? > 1 OR attempt_count + 1 = ?)
+			 RETURNING attempt_count`,
 		)
 		.bind(
-			attempt,
 			leaseUntil,
 			startedAt,
 			message.body.deliveryId,
-			attempt,
+			settings.webhookMaxAttempts,
 			startedAt,
+			message.attempts,
+			message.body.attempt,
 		)
-		.run();
-	if ((claimed.meta.changes ?? 0) !== 1) {
+		.first<{ attempt_count: number }>();
+	if (!claim) {
 		const current = await db
 			.prepare(
 				"SELECT status, attempt_count, next_attempt_at FROM webhook_deliveries WHERE id = ?",
@@ -106,7 +109,10 @@ export async function processWebhookMessage(
 			!current ||
 			current.status === "succeeded" ||
 			current.status === "dead" ||
-			(current.status === "failed" && current.attempt_count >= attempt)
+			(current.status === "failed" &&
+				(current.attempt_count >= settings.webhookMaxAttempts ||
+					(message.attempts === 1 &&
+						current.attempt_count >= message.body.attempt)))
 		) {
 			message.ack();
 		} else {
@@ -120,6 +126,7 @@ export async function processWebhookMessage(
 		}
 		return { success: false as const, errorCode: "delivery_not_claimed" };
 	}
+	const attempt = claim.attempt_count;
 	let result: WebhookDeliveryResult;
 	try {
 		const delivery = await resolveWebhookDelivery(
@@ -203,42 +210,21 @@ export async function processWebhookMessage(
 	);
 	const nextAttemptAt = now + delayMs;
 	const delaySeconds = Math.ceil(delayMs / 1_000);
+	const exhaustedQueueRetries =
+		message.attempts >= CLOUDFLARE_WEBHOOK_QUEUE_MAX_DELIVERIES;
 	await db
 		.prepare(
 			"UPDATE webhook_deliveries SET status = 'failed', next_attempt_at = ?, updated_at = ? WHERE id = ? AND status = 'delivering' AND attempt_count = ?",
 		)
-		.bind(nextAttemptAt, now, message.body.deliveryId, attempt)
+		.bind(
+			exhaustedQueueRetries ? nextAttemptAt : nextAttemptAt + ENQUEUE_LEASE_MS,
+			now,
+			message.body.deliveryId,
+			attempt,
+		)
 		.run();
-	if (!queue) {
-		message.retry({ delaySeconds });
-		return result;
-	}
-	try {
-		await queue.send(
-			{
-				kind: "webhook.delivery",
-				version: 1,
-				deliveryId: message.body.deliveryId,
-				eventId: message.body.eventId,
-				attempt: attempt + 1,
-			},
-			{ delaySeconds },
-		);
-		await db
-			.prepare(
-				"UPDATE webhook_deliveries SET next_attempt_at = ?, updated_at = ? WHERE id = ? AND status = 'failed' AND attempt_count = ?",
-			)
-			.bind(
-				nextAttemptAt + ENQUEUE_LEASE_MS,
-				now,
-				message.body.deliveryId,
-				attempt,
-			)
-			.run();
-	} catch {
-		// D1 remains due at nextAttemptAt; Cron outbox recovery will enqueue it.
-	}
-	message.ack();
+	if (exhaustedQueueRetries) message.ack();
+	else message.retry({ delaySeconds });
 	return result;
 }
 
