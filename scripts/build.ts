@@ -266,6 +266,10 @@ async function buildForWorkers(): Promise<void> {
 const skipWorkersCiPredeploy =
 	process.argv.includes("--skip-workers-ci") && process.env.WORKERS_CI === "1";
 
+if (!skipWorkersCiPredeploy) {
+	await run("bun", ["run", "generate-paraglide"]);
+}
+
 if (skipWorkersCiPredeploy) {
 	// Workers Builds already ran the build script before its auto-detected
 	// `bun run deploy` command invokes this predeploy lifecycle hook.
