@@ -560,17 +560,31 @@ async function recordFailedTasks(
 	invocationId: string,
 	now: number,
 ) {
-	await db.batch(
-		tasks.map((task) =>
-			db
-				.prepare(
-					`INSERT INTO audit_logs
-					 (id, action, target_type, target_id, after, created_at)
-					 VALUES (?, 'maintenance.task_failed', 'cron', NULL, ?, ?)`,
-				)
-				.bind(crypto.randomUUID(), JSON.stringify({ invocationId, task }), now),
-		),
-	);
+	if (!tasks.length) return;
+	await db
+		.prepare(
+			`WITH failed_tasks(task) AS (SELECT value FROM json_each(?)),
+			 newly_failed(task) AS (
+			  SELECT failed_tasks.task FROM failed_tasks
+			  WHERE COALESCE((
+			   SELECT status FROM operation_task_runs
+			   WHERE task = failed_tasks.task AND trigger = 'scheduled'
+			   ORDER BY started_at DESC, id DESC LIMIT 1 OFFSET 1
+			  ), 'succeeded') <> 'failed'
+			 )
+			 INSERT INTO audit_logs
+			  (id, action, target_type, target_id, after, created_at)
+			 SELECT ?, 'maintenance.task_failed', 'cron',
+			  CASE WHEN COUNT(*) = 1 THEN MIN(task) ELSE NULL END,
+			  json_object(
+			   'invocationId', ?,
+			   'task', CASE WHEN COUNT(*) = 1 THEN MIN(task) ELSE NULL END,
+			   'tasks', json_group_array(task)
+			  ), ?
+			 FROM newly_failed HAVING COUNT(*) > 0`,
+		)
+		.bind(JSON.stringify(tasks), crypto.randomUUID(), invocationId, now)
+		.run();
 }
 
 async function recordSkippedTask(
@@ -581,12 +595,12 @@ async function recordSkippedTask(
 ) {
 	await db
 		.prepare(
-			`INSERT INTO audit_logs
+			`INSERT OR IGNORE INTO audit_logs
 			 (id, action, target_type, target_id, after, created_at)
 			 VALUES (?, 'maintenance.task_skipped', 'cron', ?, ?, ?)`,
 		)
 		.bind(
-			crypto.randomUUID(),
+			`maintenance.task_skipped:${error.task}:${error.activeRunId ?? error.attemptId}`,
 			error.task,
 			JSON.stringify({
 				activeRunId: error.activeRunId,

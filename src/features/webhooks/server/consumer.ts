@@ -6,6 +6,7 @@ import {
 	deliverWebhook,
 	retryDelayMs,
 } from "#/features/webhooks/server/delivery";
+import { MAX_WEBHOOK_INFRASTRUCTURE_FAILURES } from "#/features/webhooks/server/retry-policy";
 import {
 	type WebhookJsonObject,
 	type WebhookQueueMessage,
@@ -128,6 +129,7 @@ export async function processWebhookMessage(
 	}
 	const attempt = claim.attempt_count;
 	let result: WebhookDeliveryResult;
+	let failureStage = "delivery_resolution";
 	try {
 		const delivery = await resolveWebhookDelivery(
 			db,
@@ -137,6 +139,7 @@ export async function processWebhookMessage(
 		const resolveHostname =
 			context.resolveHostname ??
 			(fetcher === fetch ? resolveWebhookHostname : undefined);
+		failureStage = "dns_resolution";
 		if (
 			resolveHostname &&
 			!(await assertSafeResolvedWebhookUrl(delivery.url, resolveHostname))
@@ -144,12 +147,31 @@ export async function processWebhookMessage(
 			throw new WebhookConfigurationError(
 				"Webhook delivery hostname did not resolve publicly",
 			);
+		failureStage = "merchant_request";
 		result = await deliverWebhook(delivery, fetcher, settings.webhookTimeoutMs);
 	} catch (error) {
 		if (!(error instanceof WebhookConfigurationError)) {
+			console.error(
+				JSON.stringify({
+					event: "webhook_delivery_transient_failure",
+					failureStage,
+					errorName: error instanceof Error ? error.name : "UnknownError",
+				}),
+			);
 			// D1 read or DoH lookup failure: nothing reached the merchant, so hand the
 			// claim back and let the Queue redeliver the same attempt number.
-			await releaseWebhookClaim(db, message.body.deliveryId, attempt);
+			const exhausted = await releaseWebhookClaim(
+				db,
+				message.body.deliveryId,
+				attempt,
+			);
+			if (exhausted) {
+				message.ack();
+				return {
+					success: false as const,
+					errorCode: "transient_failure_exhausted",
+				};
+			}
 			message.retry({ delaySeconds: TRANSIENT_RETRY_DELAY_MS / 1_000 });
 			return { success: false as const, errorCode: "transient_failure" };
 		}
@@ -229,10 +251,8 @@ export async function processWebhookMessage(
 }
 
 /**
- * Returns a claimed delivery to its pre-claim state (`queued` for the first
- * attempt, otherwise `failed`) without recording an attempt. The row stays
- * leased past the Queue redelivery delay so the outbox sweep only takes over
- * when the redelivery does not arrive.
+ * Releases a claim without consuming a merchant attempt, while counting the
+ * infrastructure failure and stopping redrive once its retry budget is spent.
  */
 async function releaseWebhookClaim(
 	db: D1Database,
@@ -240,22 +260,39 @@ async function releaseWebhookClaim(
 	attempt: number,
 ) {
 	const now = Date.now();
-	await db
+	const updated = await db
 		.prepare(
 			`UPDATE webhook_deliveries
-			 SET status = CASE WHEN ? = 1 THEN 'queued' ELSE 'failed' END,
-			 attempt_count = ? - 1, next_attempt_at = ?, updated_at = ?
-			 WHERE id = ? AND status = 'delivering' AND attempt_count = ?`,
+			 SET status = CASE
+			  WHEN infrastructure_failure_count + 1 >= ? THEN 'dead'
+			  WHEN ? = 1 THEN 'queued' ELSE 'failed' END,
+			 infrastructure_failure_count = infrastructure_failure_count + 1,
+			 attempt_count = ? - 1,
+			 next_attempt_at = CASE
+			  WHEN infrastructure_failure_count + 1 >= ? THEN NULL ELSE ? END,
+			 completed_at = CASE
+			  WHEN infrastructure_failure_count + 1 >= ? THEN ? ELSE completed_at END,
+			 updated_at = ?
+			 WHERE id = ? AND status = 'delivering' AND attempt_count = ?
+			 RETURNING infrastructure_failure_count`,
 		)
 		.bind(
+			MAX_WEBHOOK_INFRASTRUCTURE_FAILURES,
 			attempt,
 			attempt,
+			MAX_WEBHOOK_INFRASTRUCTURE_FAILURES,
 			now + TRANSIENT_RETRY_DELAY_MS + ENQUEUE_LEASE_MS,
+			MAX_WEBHOOK_INFRASTRUCTURE_FAILURES,
+			now,
 			now,
 			deliveryId,
 			attempt,
 		)
-		.run();
+		.first<{ infrastructure_failure_count: number }>();
+	return (
+		(updated?.infrastructure_failure_count ?? 0) >=
+		MAX_WEBHOOK_INFRASTRUCTURE_FAILURES
+	);
 }
 
 const sensitivePairPattern =

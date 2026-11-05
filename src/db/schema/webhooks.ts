@@ -198,6 +198,9 @@ export const webhookDeliveries = sqliteTable(
 			.notNull()
 			.default("queued"),
 		attemptCount: integer("attempt_count").notNull().default(0),
+		infrastructureFailureCount: integer("infrastructure_failure_count")
+			.notNull()
+			.default(0),
 		nextAttemptAt: integer("next_attempt_at", { mode: "timestamp_ms" }),
 		completedAt: integer("completed_at", { mode: "timestamp_ms" }),
 		...timestamps,

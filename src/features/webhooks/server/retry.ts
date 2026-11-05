@@ -61,7 +61,8 @@ export async function claimManualWebhookRetry(
 	const result = await db
 		.prepare(
 			`UPDATE webhook_deliveries
-			 SET status = 'failed', next_attempt_at = ?, completed_at = NULL, updated_at = ?
+			 SET status = 'failed', infrastructure_failure_count = 0,
+			 next_attempt_at = ?, completed_at = NULL, updated_at = ?
 			 WHERE id = ? AND attempt_count = ? AND (
 			  status = 'dead'
 			  OR (status IN ('failed', 'delivering')

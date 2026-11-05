@@ -109,36 +109,61 @@ describe("scheduled maintenance isolation", () => {
 		expect(runs.results).toHaveLength(2);
 	});
 
-	it("continues cleanup and other tasks when one task fails", async () => {
+	it("coalesces recurring scheduled task failures into one audit event", async () => {
 		const expire = vi.fn().mockResolvedValue(0);
 		const recoverWebhooks = vi.fn().mockRejectedValue(new Error("queue down"));
-		await runMaintenance(
-			{
-				DB: db,
-				PAYMENT_QUEUE: { sendBatch: vi.fn().mockResolvedValue(undefined) },
-			} as unknown as Env,
-			"*/1 * * * *",
-			{
-				expire,
-				recoverWebhooks,
-				loadDueWork: forcedDueWork({
-					orderExpiration: true,
-					webhookOutbox: true,
-				}),
-			},
-		);
+		const recoverProviderEvents = vi
+			.fn()
+			.mockRejectedValue(new Error("queue down"));
+		const env = {
+			DB: db,
+			PAYMENT_QUEUE: { sendBatch: vi.fn().mockResolvedValue(undefined) },
+		} as unknown as Env;
+		const dependencies = {
+			expire,
+			recoverWebhooks,
+			recoverProviderEvents,
+			loadDueWork: forcedDueWork({
+				orderExpiration: true,
+				webhookOutbox: true,
+				paymentEventOutbox: true,
+			}),
+		};
+		await runMaintenance(env, "*/1 * * * *", dependencies);
 		expect(expire).toHaveBeenCalledOnce();
 		expect(recoverWebhooks).toHaveBeenCalledOnce();
+		expect(recoverProviderEvents).toHaveBeenCalledOnce();
 		const audit = await db
 			.prepare(
-				"SELECT after FROM audit_logs WHERE action = 'maintenance.task_failed' AND json_extract(after, '$.task') = 'webhook_outbox' ORDER BY created_at DESC LIMIT 1",
+				`SELECT after FROM audit_logs WHERE action = 'maintenance.task_failed'
+				 AND EXISTS (
+				  SELECT 1 FROM json_each(json_extract(audit_logs.after, '$.tasks'))
+				  WHERE value IN ('webhook_outbox', 'payment_event_outbox')
+				 )
+				 ORDER BY created_at DESC LIMIT 1`,
 			)
 			.first<{ after: string }>();
-		expect(JSON.parse(audit?.after ?? "{}")).toEqual({
+		expect(JSON.parse(audit?.after ?? "{}")).toMatchObject({
 			invocationId: expect.any(String),
-			task: "webhook_outbox",
+			task: null,
 		});
+		expect(JSON.parse(audit?.after ?? "{}").tasks).toEqual(
+			expect.arrayContaining(["webhook_outbox", "payment_event_outbox"]),
+		);
 		expect(audit?.after).not.toContain("queue down");
+
+		await runMaintenance(env, "*/1 * * * *", dependencies);
+		const repeatedFailures = await db
+			.prepare(
+				`SELECT COUNT(*) AS count FROM audit_logs
+				 WHERE action = 'maintenance.task_failed'
+				 AND EXISTS (
+				  SELECT 1 FROM json_each(json_extract(audit_logs.after, '$.tasks'))
+				  WHERE value IN ('webhook_outbox', 'payment_event_outbox')
+				 )`,
+			)
+			.first<{ count: number }>();
+		expect(repeatedFailures?.count).toBe(1);
 	});
 
 	it("reports a missing payment Queue binding with a stable task code", async () => {
@@ -648,6 +673,21 @@ describe("scheduled maintenance isolation", () => {
 					}),
 				},
 			);
+			await runMaintenance(
+				{
+					DB: db,
+					PAYMENT_QUEUE: { sendBatch: vi.fn().mockResolvedValue(undefined) },
+				} as unknown as Env,
+				"*/1 * * * *",
+				{
+					expire,
+					recoverWebhooks,
+					loadDueWork: forcedDueWork({
+						orderExpiration: true,
+						webhookOutbox: true,
+					}),
+				},
+			);
 			records = info.mock.calls.map(([value]) => JSON.parse(String(value)));
 		} finally {
 			info.mockRestore();
@@ -659,7 +699,7 @@ describe("scheduled maintenance isolation", () => {
 		}
 
 		expect(expire).not.toHaveBeenCalled();
-		expect(recoverWebhooks).toHaveBeenCalledOnce();
+		expect(recoverWebhooks).toHaveBeenCalledTimes(2);
 		const skipped = await db
 			.prepare(
 				`SELECT target_id, after FROM audit_logs
@@ -674,6 +714,14 @@ describe("scheduled maintenance isolation", () => {
 			invocationId: expect.any(String),
 			reason: "already_running",
 		});
+		const duplicateSkips = await db
+			.prepare(
+				`SELECT COUNT(*) AS count FROM audit_logs
+				 WHERE action = 'maintenance.task_skipped' AND target_id = 'order_expiration'
+				 AND json_extract(after, '$.activeRunId') = 'active-expiration'`,
+			)
+			.first<{ count: number }>();
+		expect(duplicateSkips?.count).toBe(1);
 		expect(records).toContainEqual(
 			expect.objectContaining({
 				event: "scheduled_invocation_completed",

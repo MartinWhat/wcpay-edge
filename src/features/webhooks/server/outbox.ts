@@ -1,3 +1,4 @@
+import { MAX_WEBHOOK_INFRASTRUCTURE_FAILURES } from "#/features/webhooks/server/retry-policy";
 import type { WebhookQueueMessage } from "#/features/webhooks/types";
 import { DomainError } from "#/lib/domain-error";
 
@@ -6,10 +7,12 @@ type QueuedDelivery = {
 	event_id: string;
 	status: "queued" | "failed" | "delivering";
 	attempt_count: number;
+	infrastructure_failure_count: number;
 	created_at: number;
 };
 
 const ENQUEUE_LEASE_MS = 5 * 60_000;
+const ENQUEUE_FAILURE_RETRY_MS = 15 * 60_000;
 
 export class WebhookOutboxRecoveryError extends DomainError {
 	constructor(readonly result: { queued: number; failed: number }) {
@@ -41,7 +44,7 @@ export async function recoverWebhookOutbox(
 	limit = 100,
 ) {
 	const rows = await env.DB.prepare(
-		`SELECT id, event_id, status, attempt_count, created_at FROM webhook_deliveries
+		`SELECT id, event_id, status, attempt_count, infrastructure_failure_count, created_at FROM webhook_deliveries
 		 WHERE status IN ('queued', 'failed', 'delivering')
 		 AND (next_attempt_at IS NULL OR next_attempt_at <= ?)
 		 ORDER BY created_at ASC, id ASC LIMIT ?`,
@@ -50,7 +53,9 @@ export async function recoverWebhookOutbox(
 		.all<QueuedDelivery>();
 	let queued = 0;
 	let failed = 0;
+	let dead = 0;
 	let stranded = 0;
+	const queueErrorNames: Record<string, number> = {};
 	const leaseUntil = now + ENQUEUE_LEASE_MS;
 	for (const row of rows.results) {
 		const status = row.status === "delivering" ? "failed" : row.status;
@@ -61,33 +66,44 @@ export async function recoverWebhookOutbox(
 			eventId: row.event_id,
 			attempt: row.attempt_count + 1,
 		};
+		const claimed = await env.DB.prepare(
+			`UPDATE webhook_deliveries SET status = ?, next_attempt_at = ?, updated_at = ?
+			 WHERE id = ? AND status = ? AND attempt_count = ?
+			 AND (next_attempt_at IS NULL OR next_attempt_at <= ?)`,
+		)
+			.bind(status, leaseUntil, now, row.id, row.status, row.attempt_count, now)
+			.run();
+		if ((claimed.meta.changes ?? 0) !== 1) continue;
+		if (row.status === "delivering") stranded += 1;
 		try {
-			const claimed = await env.DB.prepare(
-				`UPDATE webhook_deliveries SET status = ?, next_attempt_at = ?, updated_at = ?
-				 WHERE id = ? AND status = ? AND attempt_count = ?
-				 AND (next_attempt_at IS NULL OR next_attempt_at <= ?)`,
-			)
-				.bind(
-					status,
-					leaseUntil,
-					now,
-					row.id,
-					row.status,
-					row.attempt_count,
-					now,
-				)
-				.run();
-			if ((claimed.meta.changes ?? 0) !== 1) continue;
-			if (row.status === "delivering") stranded += 1;
 			await env.WEBHOOK_QUEUE.send(message);
 			queued += 1;
-		} catch {
+		} catch (error) {
+			const errorName = error instanceof Error ? error.name : "UnknownError";
+			queueErrorNames[errorName] = (queueErrorNames[errorName] ?? 0) + 1;
+			const infrastructureFailureCount = row.infrastructure_failure_count + 1;
+			const exhausted =
+				infrastructureFailureCount >= MAX_WEBHOOK_INFRASTRUCTURE_FAILURES;
 			await env.DB.prepare(
-				`UPDATE webhook_deliveries SET next_attempt_at = ?, updated_at = ?
-				 WHERE id = ? AND status = ? AND attempt_count = ?`,
+				`UPDATE webhook_deliveries SET status = ?, infrastructure_failure_count = ?,
+				 next_attempt_at = ?, completed_at = CASE WHEN ? = 1 THEN ? ELSE completed_at END,
+				 updated_at = ? WHERE id = ? AND status = ? AND attempt_count = ?
+				 AND infrastructure_failure_count = ?`,
 			)
-				.bind(now, now, row.id, status, row.attempt_count)
+				.bind(
+					exhausted ? "dead" : status,
+					infrastructureFailureCount,
+					exhausted ? null : now + ENQUEUE_FAILURE_RETRY_MS,
+					exhausted ? 1 : 0,
+					now,
+					now,
+					row.id,
+					status,
+					row.attempt_count,
+					row.infrastructure_failure_count,
+				)
 				.run();
+			if (exhausted) dead += 1;
 			failed += 1;
 		}
 	}
@@ -98,6 +114,8 @@ export async function recoverWebhookOutbox(
 				selectedDeliveries: rows.results.length,
 				queuedDeliveries: queued,
 				queueFailedDeliveries: failed,
+				deliveriesDeadAfterInfrastructureFailures: dead,
+				queueErrorNames,
 				strandedDeliveries: stranded,
 				maxApplicationAttempt: Math.max(
 					0,

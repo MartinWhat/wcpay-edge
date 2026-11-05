@@ -16,6 +16,7 @@ import {
 	releaseManualWebhookRetry,
 	requireRetryableWebhookDelivery,
 } from "#/features/webhooks/server/retry";
+import { MAX_WEBHOOK_INFRASTRUCTURE_FAILURES } from "#/features/webhooks/server/retry-policy";
 import type { WebhookQueueMessage } from "#/features/webhooks/types";
 import { encryptSecret } from "#/lib/secrets";
 import { applyMigrations } from "./migrations";
@@ -468,9 +469,9 @@ describe("Webhook queue consumer on D1", () => {
 		const now = Date.now();
 		await db
 			.prepare(
-				"UPDATE webhook_deliveries SET status = 'failed', next_attempt_at = NULL, completed_at = NULL, updated_at = ? WHERE id = 'delivery-manual'",
+				"UPDATE webhook_deliveries SET status = 'failed', infrastructure_failure_count = ?, next_attempt_at = NULL, completed_at = NULL, updated_at = ? WHERE id = 'delivery-manual'",
 			)
-			.bind(now)
+			.bind(MAX_WEBHOOK_INFRASTRUCTURE_FAILURES, now)
 			.run();
 		const claims = await Promise.all([
 			claimManualWebhookRetry(db, "delivery-manual", 3, now),
@@ -480,6 +481,7 @@ describe("Webhook queue consumer on D1", () => {
 		await expect(delivery(db, "delivery-manual")).resolves.toMatchObject({
 			status: "failed",
 			attempt_count: 3,
+			infrastructure_failure_count: 0,
 			next_attempt_at: now + 5 * 60_000,
 		});
 		// The Queue rejected the message: the row becomes due for the sweep.
@@ -774,6 +776,82 @@ describe("Webhook queue consumer on D1", () => {
 		expect(recorded.results).toEqual([
 			{ attempt: 2, error_code: "configuration_error" },
 		]);
+
+		await db
+			.prepare(
+				"UPDATE webhook_deliveries SET infrastructure_failure_count = ?, next_attempt_at = 0 WHERE id = 'delivery-transient'",
+			)
+			.bind(MAX_WEBHOOK_INFRASTRUCTURE_FAILURES - 1)
+			.run();
+		const exhausted = fakeMessage("delivery-transient", 2, 2);
+		exhausted.message.body.eventId = "event-transient";
+		await processWebhookMessage(db, exhausted.message, fetcher, {
+			resolveHostname: dnsFailure,
+		});
+		expect(exhausted.ack).toHaveBeenCalledOnce();
+		expect(exhausted.retry).not.toHaveBeenCalled();
+		await expect(delivery(db, "delivery-transient")).resolves.toMatchObject({
+			status: "dead",
+			attempt_count: 2,
+			infrastructure_failure_count: MAX_WEBHOOK_INFRASTRUCTURE_FAILURES,
+			next_attempt_at: null,
+		});
+	});
+
+	it("dead-letters after repeated Queue enqueue failures", async () => {
+		const now = Date.now();
+		await seedDelivery(db, "enqueue-exhausted", "queued", 0, null);
+		const send = vi.fn().mockRejectedValue(new Error("queue unavailable"));
+		await expect(
+			recoverWebhookOutbox(
+				{ DB: db, WEBHOOK_QUEUE: { send } } as unknown as Pick<
+					Env,
+					"DB" | "WEBHOOK_QUEUE"
+				>,
+				now,
+			),
+		).resolves.toMatchObject({ queued: 0, failed: 1 });
+		await expect(
+			delivery(db, "delivery-enqueue-exhausted"),
+		).resolves.toMatchObject({
+			status: "queued",
+			infrastructure_failure_count: 1,
+			next_attempt_at: now + 15 * 60_000,
+		});
+
+		await db
+			.prepare(
+				"UPDATE webhook_deliveries SET infrastructure_failure_count = ?, next_attempt_at = ? WHERE id = 'delivery-enqueue-exhausted'",
+			)
+			.bind(MAX_WEBHOOK_INFRASTRUCTURE_FAILURES - 1, now + 15 * 60_000)
+			.run();
+		await recoverWebhookOutbox(
+			{ DB: db, WEBHOOK_QUEUE: { send } } as unknown as Pick<
+				Env,
+				"DB" | "WEBHOOK_QUEUE"
+			>,
+			now + 15 * 60_000,
+		);
+		await expect(
+			delivery(db, "delivery-enqueue-exhausted"),
+		).resolves.toMatchObject({
+			status: "dead",
+			infrastructure_failure_count: MAX_WEBHOOK_INFRASTRUCTURE_FAILURES,
+			next_attempt_at: null,
+			completed_at: now + 15 * 60_000,
+		});
+
+		const retrySend = vi.fn().mockResolvedValue(undefined);
+		await recoverWebhookOutbox(
+			{ DB: db, WEBHOOK_QUEUE: { send: retrySend } } as unknown as Pick<
+				Env,
+				"DB" | "WEBHOOK_QUEUE"
+			>,
+			now + 60 * 60_000,
+		);
+		expect(
+			retrySend.mock.calls.map(([message]) => message.deliveryId),
+		).not.toContain("delivery-enqueue-exhausted");
 	});
 
 	it("replaces the attempt row when a lease-expired delivering attempt is redelivered", async () => {
@@ -936,7 +1014,7 @@ function fakeMessage(deliveryId: string, attempt: number, queueAttempts = 1) {
 async function delivery(db: D1Database, id: string) {
 	return db
 		.prepare(
-			"SELECT status, attempt_count, next_attempt_at, completed_at FROM webhook_deliveries WHERE id = ?",
+			"SELECT status, attempt_count, infrastructure_failure_count, next_attempt_at, completed_at FROM webhook_deliveries WHERE id = ?",
 		)
 		.bind(id)
 		.first<Record<string, string | number | null>>();
