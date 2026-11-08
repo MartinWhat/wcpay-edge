@@ -134,6 +134,60 @@ describe("AlipayProvider", () => {
 		);
 	});
 
+	it("includes Alipay business codes when a query is rejected", async () => {
+		const response = signedQueryResponse(
+			{
+				code: "40006",
+				msg: "Business Failed",
+				sub_code: "ACQ.TRADE_STATUS_ERROR",
+			},
+			privateKey,
+		);
+		const provider = await AlipayProvider.create(
+			config,
+			vi.fn(async () => new Response(JSON.stringify(response))),
+		);
+
+		await expect(provider.queryPayment("order-001")).rejects.toMatchObject({
+			kind: "provider",
+			code: "ALIPAY_QUERY_REJECTED",
+			diagnostics: {
+				gatewayCode: "40006",
+				gatewaySubCode: "ACQ.TRADE_STATUS_ERROR",
+			},
+		});
+	});
+
+	it("includes HTTP status when the gateway rejects an HTTP request", async () => {
+		const provider = await AlipayProvider.create(
+			config,
+			vi.fn(async () => new Response("gateway body", { status: 503 })),
+		);
+
+		await expect(provider.queryPayment("order-001")).rejects.toMatchObject({
+			kind: "network",
+			code: "ALIPAY_GATEWAY_HTTP_ERROR",
+			diagnostics: { httpStatus: 503 },
+		});
+	});
+
+	it("records a safe transport code from a failed gateway request", async () => {
+		const fetchError = Object.assign(new TypeError("fetch failed"), {
+			cause: { code: "EAI_AGAIN" },
+		});
+		const provider = await AlipayProvider.create(
+			config,
+			vi.fn(async () => {
+				throw fetchError;
+			}),
+		);
+
+		await expect(provider.queryPayment("order-001")).rejects.toMatchObject({
+			code: "ALIPAY_GATEWAY_FETCH_FAILED",
+			diagnostics: { transportCode: "EAI_AGAIN" },
+		});
+	});
+
 	it("treats TRADE_FINISHED as a successful query result", async () => {
 		const response = signedQueryResponse(
 			{

@@ -193,7 +193,7 @@ describe("Alipay D1 payment flow", () => {
 				.bind(orderId)
 				.first<{ after: string }>(),
 		).resolves.toMatchObject({
-			after: expect.stringContaining('"kind":"network"'),
+			after: expect.stringContaining("ALIPAY_GATEWAY_FETCH_FAILED"),
 		});
 		await expect(
 			db

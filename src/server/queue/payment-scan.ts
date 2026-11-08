@@ -106,13 +106,18 @@ export async function handlePaymentScan(
 				throw new AlipayError(
 					"Alipay channel credentials are missing",
 					"configuration",
+					"ALIPAY_CREDENTIALS_MISSING",
 				);
 			queried = await provider.queryPayment(message.body.orderId);
 		} catch (error) {
+			const alipayError = error instanceof AlipayError ? error : null;
 			await recordPaymentScanIssue(
 				env.DB,
 				message.body,
-				error instanceof AlipayError ? error.kind : "provider",
+				alipayError?.kind ?? "provider",
+				alipayError
+					? { errorCode: alipayError.code, ...alipayError.diagnostics }
+					: { errorCode: "ALIPAY_UNEXPECTED_ERROR" },
 			);
 			message.retry();
 			return;
@@ -139,6 +144,7 @@ export async function handlePaymentScan(
 					env.DB,
 					message.body,
 					"queue_enqueue_failed",
+					{ errorCode: "ALIPAY_STATUS_REQUEUE_FAILED" },
 				);
 				message.retry();
 				return;
@@ -624,6 +630,13 @@ async function recordPaymentScanIssue(
 	db: D1Database,
 	message: PaymentScanMessage,
 	kind: string,
+	diagnostics?: {
+		errorCode: string;
+		httpStatus?: number;
+		gatewayCode?: string;
+		gatewaySubCode?: string;
+		transportCode?: string;
+	},
 ) {
 	await db
 		.prepare(
@@ -637,6 +650,7 @@ async function recordPaymentScanIssue(
 			JSON.stringify({
 				receivingMethodId: message.receivingMethodId,
 				kind,
+				...diagnostics,
 			}),
 			Date.now(),
 		)

@@ -66,10 +66,27 @@ type SdkClient = {
 	): boolean;
 };
 
+type AlipayErrorKind = "configuration" | "network" | "provider" | "signature";
+export type AlipayErrorDiagnostics = {
+	httpStatus?: number;
+	gatewayCode?: string;
+	gatewaySubCode?: string;
+	transportCode?: string;
+};
+
+const defaultAlipayErrorCodes: Record<AlipayErrorKind, string> = {
+	configuration: "ALIPAY_CONFIGURATION_ERROR",
+	network: "ALIPAY_GATEWAY_NETWORK_ERROR",
+	provider: "ALIPAY_PROVIDER_ERROR",
+	signature: "ALIPAY_RESPONSE_SIGNATURE_ERROR",
+};
+
 export class AlipayError extends Error {
 	constructor(
 		message: string,
-		readonly kind: "configuration" | "network" | "provider" | "signature",
+		readonly kind: AlipayErrorKind,
+		readonly code = defaultAlipayErrorCodes[kind],
+		readonly diagnostics: AlipayErrorDiagnostics = {},
 	) {
 		super(message);
 		this.name = "AlipayError";
@@ -92,6 +109,7 @@ export class AlipayProvider implements FiatPaymentProvider {
 			throw new AlipayError(
 				"Alipay provider configuration is invalid",
 				"configuration",
+				"ALIPAY_CONFIGURATION_INVALID",
 			);
 		this.config = parsed.data;
 		this.sdk = sdk;
@@ -106,6 +124,7 @@ export class AlipayProvider implements FiatPaymentProvider {
 			throw new AlipayError(
 				"Alipay provider configuration is invalid",
 				"configuration",
+				"ALIPAY_CONFIGURATION_INVALID",
 			);
 		const { AlipaySdk } = await import("alipay-sdk");
 		const sdk = new AlipaySdk({
@@ -248,20 +267,44 @@ export class AlipayProvider implements FiatPaymentProvider {
 	}
 
 	async queryPayment(providerOrderId: string): Promise<ProviderPayment | null> {
-		const signed = this.sdk.sdkExecute("alipay.trade.query", {
-			bizContent: { outTradeNo: providerOrderId },
-		});
+		let signed: string;
+		try {
+			signed = this.sdk.sdkExecute("alipay.trade.query", {
+				bizContent: { outTradeNo: providerOrderId },
+			});
+		} catch {
+			throw new AlipayError(
+				"Alipay query request could not be signed",
+				"configuration",
+				"ALIPAY_QUERY_SIGNING_FAILED",
+			);
+		}
 		const response = await this.requestGateway(signed);
 		const parsed = queryResponseSchema.safeParse(response.data);
 		if (!parsed.success)
-			throw new AlipayError("Alipay query response is invalid", "provider");
+			throw new AlipayError(
+				"Alipay query response is invalid",
+				"provider",
+				"ALIPAY_QUERY_RESPONSE_INVALID",
+			);
 		if (
 			parsed.data.code === "40004" &&
 			parsed.data.sub_code === "ACQ.TRADE_NOT_EXIST"
 		)
 			return null;
-		if (parsed.data.code !== "10000")
-			throw new AlipayError("Alipay rejected the payment query", "provider");
+		if (parsed.data.code !== "10000") {
+			const gatewayCode = safeDiagnosticCode(parsed.data.code);
+			const gatewaySubCode = safeDiagnosticCode(parsed.data.sub_code);
+			throw new AlipayError(
+				"Alipay rejected the payment query",
+				"provider",
+				"ALIPAY_QUERY_REJECTED",
+				{
+					...(gatewayCode ? { gatewayCode } : {}),
+					...(gatewaySubCode ? { gatewaySubCode } : {}),
+				},
+			);
+		}
 		const status = isPaidTradeStatus(parsed.data.trade_status)
 			? "succeeded"
 			: parsed.data.trade_status === "TRADE_CLOSED"
@@ -273,7 +316,11 @@ export class AlipayProvider implements FiatPaymentProvider {
 				!parsed.data.total_amount ||
 				parsed.data.out_trade_no !== providerOrderId)
 		)
-			throw new AlipayError("Alipay query did not match the order", "provider");
+			throw new AlipayError(
+				"Alipay query did not match the order",
+				"provider",
+				"ALIPAY_QUERY_ORDER_MISMATCH",
+			);
 		return {
 			providerTradeId: parsed.data.trade_no ?? providerOrderId,
 			amountMinor:
@@ -303,12 +350,36 @@ export class AlipayProvider implements FiatPaymentProvider {
 					signal: AbortSignal.timeout(this.config.timeoutMs),
 				},
 			);
-		} catch {
-			throw new AlipayError("Alipay gateway request failed", "network");
+		} catch (error) {
+			const timedOut =
+				error instanceof Error &&
+				(error.name === "TimeoutError" || error.name === "AbortError");
+			const transportCode = transportErrorCode(error);
+			throw new AlipayError(
+				"Alipay gateway request failed",
+				"network",
+				timedOut ? "ALIPAY_GATEWAY_TIMEOUT" : "ALIPAY_GATEWAY_FETCH_FAILED",
+				transportCode ? { transportCode } : {},
+			);
 		}
-		const text = await response.text();
 		if (!response.ok)
-			throw new AlipayError("Alipay gateway returned an error", "network");
+			throw new AlipayError(
+				"Alipay gateway returned an error",
+				"network",
+				"ALIPAY_GATEWAY_HTTP_ERROR",
+				{ httpStatus: response.status },
+			);
+		let text: string;
+		try {
+			text = await response.text();
+		} catch {
+			throw new AlipayError(
+				"Alipay gateway response body could not be read",
+				"network",
+				"ALIPAY_GATEWAY_BODY_READ_FAILED",
+				{ httpStatus: response.status },
+			);
+		}
 		const envelope = parseJson(text);
 		const key = "alipay_trade_query_response";
 		const data = envelope[key] ?? envelope.alipay_trade_precreate_response;
@@ -317,6 +388,7 @@ export class AlipayProvider implements FiatPaymentProvider {
 			throw new AlipayError(
 				"Alipay response signature is missing",
 				"signature",
+				"ALIPAY_RESPONSE_SIGNATURE_MISSING",
 			);
 		let verified = false;
 		try {
@@ -328,6 +400,7 @@ export class AlipayProvider implements FiatPaymentProvider {
 			throw new AlipayError(
 				"Alipay response signature is invalid",
 				"signature",
+				"ALIPAY_RESPONSE_SIGNATURE_INVALID",
 			);
 		return { data };
 	}
@@ -337,19 +410,44 @@ function isPaidTradeStatus(status: string | undefined) {
 	return status === "TRADE_SUCCESS" || status === "TRADE_FINISHED";
 }
 
+function safeDiagnosticCode(value: string | undefined) {
+	return value && /^[A-Za-z0-9_.-]{1,64}$/.test(value) ? value : undefined;
+}
+
+function transportErrorCode(error: unknown) {
+	if (!isRecord(error)) return undefined;
+	const directCode = safeDiagnosticCode(
+		typeof error.code === "string" ? error.code : undefined,
+	);
+	if (directCode) return directCode;
+	const cause = isRecord(error.cause) ? error.cause : null;
+	return safeDiagnosticCode(
+		cause && typeof cause.code === "string" ? cause.code : undefined,
+	);
+}
+
 function decimalToMinor(value: string, decimals: number) {
 	if (!/^\d+(?:\.\d+)?$/.test(value))
-		throw new AlipayError("Alipay amount is invalid", "provider");
+		throw new AlipayError(
+			"Alipay amount is invalid",
+			"provider",
+			"ALIPAY_AMOUNT_INVALID",
+		);
 	const [whole = "", fraction = ""] = value.split(".");
 	const exact = fraction.slice(0, decimals).padEnd(decimals, "0");
 	if (fraction.slice(decimals).replaceAll("0", ""))
 		throw new AlipayError(
 			"Alipay amount has unsupported precision",
 			"provider",
+			"ALIPAY_AMOUNT_PRECISION_INVALID",
 		);
 	const minor = BigInt(whole) * 10n ** BigInt(decimals) + BigInt(exact || "0");
 	if (minor <= 0n)
-		throw new AlipayError("Alipay amount must be positive", "provider");
+		throw new AlipayError(
+			"Alipay amount must be positive",
+			"provider",
+			"ALIPAY_AMOUNT_NON_POSITIVE",
+		);
 	return minor.toString();
 }
 
@@ -371,7 +469,11 @@ function parseJson(value: string): Record<string, unknown> {
 	} catch {
 		// Provider responses are untrusted and mapped to a structured error.
 	}
-	throw new AlipayError("Alipay response is invalid", "provider");
+	throw new AlipayError(
+		"Alipay response is invalid",
+		"provider",
+		"ALIPAY_GATEWAY_INVALID_JSON",
+	);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -13,6 +13,7 @@ import {
 } from "#/features/operations/server/admin";
 import { PageHeader } from "#/layouts/components/page-header";
 import { formatDateTime } from "#/lib/format";
+import { isRecord } from "#/lib/is-record";
 import { useCurrentProTableUrlState } from "#/lib/pro-table-url-state";
 import { m } from "#/paraglide/messages";
 
@@ -98,14 +99,25 @@ export function AuditLogsPage() {
 		{
 			id: "context",
 			header: m.audit_context(),
-			cell: ({ row }) => (
-				<div className="text-muted-foreground text-xs">
-					<span className="block">{row.original.ipAddress ?? "—"}</span>
-					{row.original.requestId ? (
-						<code>{row.original.requestId}</code>
-					) : null}
-				</div>
-			),
+			cell: ({ row }) => {
+				const scanError =
+					row.original.action === "payment.scan_failed"
+						? paymentScanErrorSummary(row.original.after)
+						: null;
+				return (
+					<div className="text-muted-foreground text-xs">
+						<span className="block">{row.original.ipAddress ?? "—"}</span>
+						{row.original.requestId ? (
+							<code>{row.original.requestId}</code>
+						) : null}
+						{scanError ? (
+							<code className="block max-w-64 truncate" title={scanError}>
+								{scanError}
+							</code>
+						) : null}
+					</div>
+				);
+			},
 		},
 	];
 	return (
@@ -139,4 +151,25 @@ export function AuditLogsPage() {
 			/>
 		</div>
 	);
+}
+
+function paymentScanErrorSummary(after: string | null) {
+	if (!after) return null;
+	try {
+		const value: unknown = JSON.parse(after);
+		if (!isRecord(value)) return null;
+		const parts = [
+			typeof value.kind === "string" ? value.kind : null,
+			typeof value.errorCode === "string" ? value.errorCode : null,
+			typeof value.httpStatus === "number" ? `HTTP ${value.httpStatus}` : null,
+			typeof value.gatewayCode === "string" ? value.gatewayCode : null,
+			typeof value.gatewaySubCode === "string" ? value.gatewaySubCode : null,
+			typeof value.transportCode === "string" ? value.transportCode : null,
+		];
+		return (
+			parts.filter((part): part is string => part !== null).join(" / ") || null
+		);
+	} catch {
+		return null;
+	}
 }
