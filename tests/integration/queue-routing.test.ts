@@ -224,6 +224,42 @@ describe("Cloudflare Queue envelope rejection", () => {
 		).toBe(true);
 	});
 
+	it("keeps automatic Alipay polling separate from one-off payment checks", async () => {
+		let paymentQueries = 0;
+		const countedDatabase = {
+			prepare(query: string) {
+				if (query.includes("FROM order_payment_snapshots")) paymentQueries += 1;
+				return database.prepare(query);
+			},
+			batch: database.batch.bind(database),
+		} as unknown as D1Database;
+		const messages = [false, true].map((alipayPolling, index) => ({
+			id: `alipay-polling-mode-${index}`,
+			timestamp: new Date(),
+			attempts: 1,
+			body: {
+				kind: "payment.scan",
+				version: 1,
+				orderId: "missing-alipay-order",
+				receivingMethodId: "same-receiving-method",
+				...(alipayPolling ? { alipayPolling: true as const } : {}),
+			},
+			ack: vi.fn(),
+			retry: vi.fn(),
+		}));
+
+		await handleQueue(
+			{
+				queue: "wcpay-edge-payments",
+				messages,
+			} as unknown as Parameters<typeof handleQueue>[0],
+			{ DB: countedDatabase } as Env,
+		);
+
+		expect(paymentQueries).toBe(2);
+		expect(messages.every(({ ack }) => ack.mock.calls.length === 1)).toBe(true);
+	});
+
 	it("rejects a valid envelope delivered to the wrong queue", async () => {
 		const ack = vi.fn();
 		const message = {

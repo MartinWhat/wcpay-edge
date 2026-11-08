@@ -18,6 +18,7 @@ describe("Cloudflare Queue message routing", () => {
 				version: 1,
 				receivingMethodId: "method",
 				orderId: "order",
+				alipayPolling: true,
 			}),
 		).toBe("payment");
 	});
@@ -39,6 +40,13 @@ describe("Cloudflare Queue message routing", () => {
 			deliveryId: "d",
 			eventId: "e",
 			attempt: 1,
+		},
+		{
+			kind: "payment.scan",
+			version: 1,
+			receivingMethodId: "method",
+			orderId: "order",
+			alipayPolling: false,
 		},
 		{ channelId: "channel", orderId: "order" },
 		{ channelId: "channel", orderId: "order", address: 1 },

@@ -12,6 +12,10 @@ import {
 	type RateSyncConfiguration,
 } from "#/features/payment-settings/server/exchange-rates";
 import { clearReusableReceivingMethodLockKeys } from "#/features/payment-settings/server/receiving-method-locks";
+import {
+	ALIPAY_SCHEDULED_FALLBACK_INTERVAL_MS,
+	ALIPAY_STATUS_POLL_WINDOW_MS,
+} from "#/features/payments/server/alipay-polling";
 import { expireOrders } from "#/features/payments/server/expiration";
 import { recoverProviderEventOutbox } from "#/features/payments/server/provider-event-outbox";
 import type {
@@ -263,6 +267,8 @@ async function loadDueMaintenanceWork(
 ): Promise<DueMaintenanceWork> {
 	const monitorSince = now - reorgMonitorMs;
 	const expiredScanBefore = now - EXPIRED_PAYMENT_SCAN_GRACE_MS;
+	const alipayPollCreatedAfter = now - ALIPAY_STATUS_POLL_WINDOW_MS;
+	const alipayScanBefore = now - ALIPAY_SCHEDULED_FALLBACK_INTERVAL_MS;
 	const defaultScanBefore = now - paymentScanIntervalMs;
 	const webhookRecoveryBefore = now - webhookRecoveryIntervalMs;
 	const rpcHealthDueBefore = now - rpcHealthIntervalMs;
@@ -289,15 +295,23 @@ async function loadDueMaintenanceWork(
 			  OR EXISTS(SELECT 1 FROM idempotency_keys INDEXED BY idempotency_keys_expires_idx WHERE expires_at <= ? LIMIT 1)) AS frequent_cleanup,
 			 EXISTS(SELECT 1 FROM orders o INDEXED BY orders_payment_scan_idx
 				  JOIN order_payment_snapshots ops ON ops.order_id = o.id
-			   AND ops.rail_kind IN ('chain','exchange','wallet')
+			   AND (
+			    ops.rail_kind IN ('chain','exchange','wallet')
+			    OR (ops.rail_kind = 'fiat' AND ops.rail_code = 'alipay'
+			     AND o.status IN ('pending','partially_paid','expired'))
+			   )
 			  LEFT JOIN payment_ingresses source
 			   ON source.network = ops.rail_code AND source.provider = 'alchemy'
 			   AND source.enabled = 1 AND source.mode = 'active'
 			  WHERE o.status IN ('pending','confirming','partially_paid','paid','overpaid','expired')
-			  AND (((o.status IN ('pending','partially_paid') AND o.expires_at > ?) OR o.status = 'confirming')
-			   OR (o.status IN ('paid','overpaid') AND o.paid_at >= ?)
-				   OR (o.status = 'expired' AND o.updated_at >= ?))
+			  AND ((ops.rail_kind = 'fiat' AND ops.rail_code = 'alipay'
+			    AND o.status IN ('pending','partially_paid','expired') AND o.created_at > ?)
+			   OR (ops.rail_kind IN ('chain','exchange','wallet') AND (
+			    ((o.status IN ('pending','partially_paid') AND o.expires_at > ?) OR o.status = 'confirming')
+			    OR (o.status IN ('paid','overpaid') AND o.paid_at >= ?)
+			    OR (o.status = 'expired' AND o.updated_at >= ?))))
 			  AND (o.last_payment_scan_at IS NULL OR o.last_payment_scan_at <= CASE
+			   WHEN ops.rail_kind = 'fiat' AND ops.rail_code = 'alipay' THEN ?
 			   WHEN source.id IS NOT NULL AND source.health_status = 'healthy' THEN ?
 			   ELSE ? END) LIMIT 1) AS payment_scan`,
 		)
@@ -311,9 +325,11 @@ async function loadDueMaintenanceWork(
 			now,
 			now,
 			now,
+			alipayPollCreatedAfter,
 			now,
 			monitorSince,
 			expiredScanBefore,
+			alipayScanBefore,
 			webhookRecoveryBefore,
 			defaultScanBefore,
 		)
@@ -847,31 +863,44 @@ async function enqueuePaymentScans(
 		);
 	const monitorSince = now - reorgMonitorMs;
 	const expiredScanBefore = now - EXPIRED_PAYMENT_SCAN_GRACE_MS;
+	const alipayPollCreatedAfter = now - ALIPAY_STATUS_POLL_WINDOW_MS;
+	const alipayScanBefore = now - ALIPAY_SCHEDULED_FALLBACK_INTERVAL_MS;
 	const defaultScanBefore = now - paymentScanIntervalMs;
 	const webhookRecoveryBefore = now - webhookRecoveryIntervalMs;
 	const activeOrders = await env.DB.prepare(
-		`SELECT o.id, ops.receiving_method_id, ops.asset_code
+		`SELECT o.id, ops.receiving_method_id, ops.asset_code, ops.rail_code, ops.rail_kind
 		 FROM orders o INDEXED BY orders_payment_scan_idx
 		 CROSS JOIN order_payment_snapshots ops ON ops.order_id = o.id
-		  AND ops.rail_kind IN ('chain','exchange','wallet')
+		  AND (
+		   ops.rail_kind IN ('chain','exchange','wallet')
+		   OR (ops.rail_kind = 'fiat' AND ops.rail_code = 'alipay'
+		    AND o.status IN ('pending','partially_paid','expired'))
+		  )
 		 LEFT JOIN payment_ingresses source
 		  ON source.network = ops.rail_code AND source.provider = 'alchemy'
 		  AND source.enabled = 1 AND source.mode = 'active'
 		 WHERE o.status IN ('pending','confirming','partially_paid','paid','overpaid','expired')
 		 AND (
-		  ((o.status IN ('pending','partially_paid') AND o.expires_at > ?) OR o.status = 'confirming')
-		  OR (o.status IN ('paid','overpaid') AND o.paid_at >= ?)
-		  OR (o.status = 'expired' AND o.updated_at >= ?)
+		  (ops.rail_kind = 'fiat' AND ops.rail_code = 'alipay'
+		   AND o.status IN ('pending','partially_paid','expired') AND o.created_at > ?)
+		  OR (ops.rail_kind IN ('chain','exchange','wallet') AND (
+		   ((o.status IN ('pending','partially_paid') AND o.expires_at > ?) OR o.status = 'confirming')
+		   OR (o.status IN ('paid','overpaid') AND o.paid_at >= ?)
+		   OR (o.status = 'expired' AND o.updated_at >= ?)
+		  ))
 		 )
 		 AND (o.last_payment_scan_at IS NULL OR o.last_payment_scan_at <= CASE
+		  WHEN ops.rail_kind = 'fiat' AND ops.rail_code = 'alipay' THEN ?
 		  WHEN source.id IS NOT NULL AND source.health_status = 'healthy' THEN ?
 		  ELSE ? END)
 		 ORDER BY o.last_payment_scan_at ASC, o.created_at ASC, o.rowid ASC LIMIT ?`,
 	)
 		.bind(
+			alipayPollCreatedAfter,
 			now,
 			monitorSince,
 			expiredScanBefore,
+			alipayScanBefore,
 			webhookRecoveryBefore,
 			defaultScanBefore,
 			batchSize,
@@ -880,6 +909,8 @@ async function enqueuePaymentScans(
 			id: string;
 			receiving_method_id: string;
 			asset_code: string;
+			rail_code: string;
+			rail_kind: string;
 		}>();
 	if (!activeOrders.results.length) return;
 	// Select the oldest due batch first; USDT priority must not starve other assets.
@@ -895,6 +926,9 @@ async function enqueuePaymentScans(
 					version: 1,
 					receivingMethodId: order.receiving_method_id,
 					orderId: order.id,
+					...(order.rail_kind === "fiat" && order.rail_code === "alipay"
+						? { alipayPolling: true as const }
+						: {}),
 				} satisfies PaymentScanMessage,
 			})),
 		);

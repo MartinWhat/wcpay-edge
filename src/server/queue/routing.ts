@@ -175,7 +175,11 @@ function mergeDuplicatePaymentScans(
 	for (const message of messages) {
 		if (!isPaymentScanQueueMessage(message)) continue;
 		const body = message.body;
-		const key = JSON.stringify([body.orderId, body.receivingMethodId]);
+		const key = JSON.stringify([
+			body.orderId,
+			body.receivingMethodId,
+			body.alipayPolling === true,
+		]);
 		const group = groups.get(key);
 		if (group) group.push(message);
 		else groups.set(key, [message]);
@@ -184,7 +188,11 @@ function mergeDuplicatePaymentScans(
 	return messages.flatMap((message) => {
 		if (!isPaymentScanQueueMessage(message)) return [message];
 		const body = message.body;
-		const key = JSON.stringify([body.orderId, body.receivingMethodId]);
+		const key = JSON.stringify([
+			body.orderId,
+			body.receivingMethodId,
+			body.alipayPolling === true,
+		]);
 		if (emitted.has(key)) return [];
 		emitted.add(key);
 		const group = groups.get(key) ?? [message];
@@ -326,12 +334,15 @@ function isWebhookQueueMessageBody(
 
 function isPaymentScanMessageBody(value: unknown): value is PaymentScanMessage {
 	if (!isRecord(value)) return false;
+	const allowedKeys = ["kind", "version", "receivingMethodId", "orderId"];
+	if (Object.hasOwn(value, "alipayPolling")) allowedKeys.push("alipayPolling");
 	return (
 		value.kind === "payment.scan" &&
 		value.version === 1 &&
-		hasOnlyKeys(value, ["kind", "version", "receivingMethodId", "orderId"]) &&
+		hasOnlyKeys(value, allowedKeys) &&
 		isBoundedString(value.receivingMethodId, 128) &&
-		isBoundedString(value.orderId, 128)
+		isBoundedString(value.orderId, 128) &&
+		(value.alipayPolling === undefined || value.alipayPolling === true)
 	);
 }
 

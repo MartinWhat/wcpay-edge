@@ -1,10 +1,16 @@
 import { createReceivingMethodAdapters } from "#/features/payment-settings/server/method-adapter";
 import {
+	alipayStatusPollDelaySeconds,
+	isAlipayStatusPollOpen,
+} from "#/features/payments/server/alipay-polling";
+import { loadAlipayProviderForOrder } from "#/features/payments/server/alipay-provider";
+import {
 	PaymentAttributionAmbiguousError,
 	PaymentAttributionNotFoundError,
 	resolvePaymentTransactionOrder,
 } from "#/features/payments/server/attribution";
 import { recordPaymentTransaction } from "#/features/payments/server/process";
+import { recordProviderPayment } from "#/features/payments/server/provider-payment";
 import { paymentTransactionId } from "#/features/payments/server/reconciliation";
 import type { PaymentScanMessage } from "#/features/payments/types";
 import type {
@@ -15,6 +21,8 @@ import type {
 	ScanTruncation,
 	TransactionScan,
 } from "#/integrations/chains/types";
+import { AlipayError } from "#/integrations/payment-rails/alipay";
+import type { ProviderPayment } from "#/integrations/payment-rails/types";
 import {
 	isObservedProviderAdapter,
 	providerOperationDurationMs,
@@ -45,8 +53,9 @@ export async function handlePaymentScan(
 	adapterCache?: Map<string, ReceivingAdaptersPromise>,
 ): Promise<void> {
 	const payment = await env.DB.prepare(
-		`SELECT ops.asset_id, ops.asset_code, ops.rail_kind, ops.target_value, o.provider_order_id,
-		 o.payment_scan_cursor, o.created_at
+		`SELECT ops.asset_id, ops.asset_code, ops.rail_code, ops.rail_kind,
+		 ops.target_value, o.provider_order_id, o.payment_scan_cursor,
+		 o.status, o.created_at
 		 FROM order_payment_snapshots ops
 		 JOIN orders o ON o.id = ops.order_id
 		 WHERE ops.order_id = ? AND ops.receiving_method_id = ? LIMIT 1`,
@@ -55,13 +64,88 @@ export async function handlePaymentScan(
 		.first<{
 			asset_id: string;
 			asset_code: string;
+			rail_code: string;
 			rail_kind: string;
 			target_value: string;
 			provider_order_id: string | null;
 			payment_scan_cursor: string | null;
+			status: string;
 			created_at: number;
 		}>();
 	if (!payment) {
+		message.ack();
+		return;
+	}
+	if (payment.rail_kind === "fiat" && payment.rail_code === "alipay") {
+		if (
+			!["pending", "partially_paid", "expired"].includes(payment.status) ||
+			!isAlipayStatusPollOpen(payment.created_at, Date.now())
+		) {
+			message.ack();
+			return;
+		}
+		const scanStartedAt = Date.now();
+		const scanLease = await env.DB.prepare(
+			`UPDATE orders SET last_payment_scan_at = ?
+			 WHERE id = ? AND status IN ('pending','partially_paid','expired')`,
+		)
+			.bind(scanStartedAt, message.body.orderId)
+			.run();
+		if (scanLease.meta.changes !== 1) {
+			message.ack();
+			return;
+		}
+		let queried: ProviderPayment | null;
+		try {
+			const provider = await loadAlipayProviderForOrder(
+				env.DB,
+				message.body.orderId,
+				runtime,
+			);
+			if (!provider)
+				throw new AlipayError(
+					"Alipay channel credentials are missing",
+					"configuration",
+				);
+			queried = await provider.queryPayment(message.body.orderId);
+		} catch (error) {
+			await recordPaymentScanIssue(
+				env.DB,
+				message.body,
+				error instanceof AlipayError ? error.kind : "provider",
+			);
+			message.retry();
+			return;
+		}
+		if (queried?.status === "succeeded") {
+			await recordProviderPayment(env, message.body.orderId, "alipay", queried);
+			message.ack();
+			return;
+		}
+		if (
+			(!queried || queried.status === "pending") &&
+			message.body.alipayPolling &&
+			isAlipayStatusPollOpen(payment.created_at, Date.now())
+		) {
+			try {
+				await env.PAYMENT_QUEUE.send(message.body, {
+					delaySeconds: alipayStatusPollDelaySeconds(
+						payment.created_at,
+						Date.now(),
+					),
+				});
+			} catch {
+				await recordPaymentScanIssue(
+					env.DB,
+					message.body,
+					"queue_enqueue_failed",
+				);
+				message.retry();
+				return;
+			}
+			message.ack();
+			return;
+		}
 		message.ack();
 		return;
 	}

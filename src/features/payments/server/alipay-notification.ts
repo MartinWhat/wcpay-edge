@@ -1,17 +1,15 @@
 import { z } from "zod";
+import { loadAlipayProviderForOrder } from "#/features/payments/server/alipay-provider";
 import { recordProviderPayment } from "#/features/payments/server/provider-payment";
 import {
 	claimInboundWebhookRateLimit,
 	recordInboundWebhookReceipt,
 } from "#/features/webhooks/server/inbound-receipts";
-import { AlipayProvider } from "#/integrations/payment-rails/alipay";
-import { decryptSecret } from "#/lib/secrets";
 import { json, withRequestId } from "#/server/http";
 import {
 	RequestBodyTooLargeError,
 	readLimitedRequestBytes,
 } from "#/server/request-body";
-import { loadRuntimeConfig } from "#/server/runtime-config";
 
 const maximumBodyBytes = 64 * 1024;
 const notificationSchema = z.record(z.string(), z.string());
@@ -85,34 +83,9 @@ export async function handleAlipayNotification(request: Request, env: Env) {
 			"unknown",
 			"invalid_notification",
 		);
-	const row = await env.DB.prepare(
-		`SELECT credential.config_encrypted
-		 FROM orders o
-		 JOIN order_payment_snapshots ops ON ops.order_id = o.id
-		 JOIN payment_ingresses connection ON connection.id = ops.connection_id
-		 LEFT JOIN payment_ingress_credentials credential
-		   ON credential.payment_ingress_id = connection.id
-		 WHERE o.id = ? AND ops.rail_code = 'alipay' LIMIT 1`,
-	)
-		.bind(orderId)
-		.first<{ config_encrypted: string | null }>();
-	if (!row?.config_encrypted)
-		return finish(
-			errorResponse(request, "invalid_signature", 401),
-			"unknown",
-			"order_not_found",
-		);
-	const runtime = await loadRuntimeConfig(env.DB);
-	let provider: AlipayProvider;
+	let provider: Awaited<ReturnType<typeof loadAlipayProviderForOrder>>;
 	try {
-		provider = await AlipayProvider.create(
-			JSON.parse(
-				await decryptSecret(
-					row.config_encrypted,
-					runtime.integrationConfigSecret,
-				),
-			),
-		);
+		provider = await loadAlipayProviderForOrder(env.DB, orderId);
 	} catch {
 		return finish(
 			errorResponse(request, "provider_configuration_invalid", 503),
@@ -120,6 +93,12 @@ export async function handleAlipayNotification(request: Request, env: Env) {
 			"provider_configuration_invalid",
 		);
 	}
+	if (!provider)
+		return finish(
+			errorResponse(request, "invalid_signature", 401),
+			"unknown",
+			"order_not_found",
+		);
 	if (!provider.verifyNotification(input))
 		return finish(
 			errorResponse(request, "invalid_signature", 401),

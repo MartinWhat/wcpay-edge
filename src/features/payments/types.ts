@@ -3,6 +3,7 @@ export interface PaymentScanMessage {
 	version: 1;
 	receivingMethodId: string;
 	orderId: string;
+	alipayPolling?: true;
 }
 
 export interface PaymentProviderEventMessage {

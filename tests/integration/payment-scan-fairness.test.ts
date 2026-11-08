@@ -209,7 +209,7 @@ describe("payment scan scheduling fairness", () => {
 		]);
 	});
 
-	it("limits expired scans and skips Alipay in the payment scan queue", async () => {
+	it("limits expired scans and skips settled Alipay orders", async () => {
 		const now = Date.now();
 		await db.batch([
 			db.prepare("UPDATE orders SET status = 'expired', updated_at = 0"),
@@ -313,6 +313,109 @@ describe("payment scan scheduling fairness", () => {
 		expect(retry).not.toHaveBeenCalled();
 	});
 
+	it("schedules pending Alipay queries and only scans recently expired orders", async () => {
+		const now = Date.now();
+		const orders = [
+			["poll-alipay-pending", "pending", now + 600_000, now, now],
+			[
+				"poll-alipay-recent-expired",
+				"expired",
+				now - 600_000,
+				now - 300_000,
+				now - 600_000,
+			],
+			[
+				"poll-alipay-old-expired-recent-update",
+				"expired",
+				now - 16 * 60_000,
+				now - 60_000,
+				now - 16 * 60_000,
+			],
+			[
+				"poll-alipay-pending-past-cutoff",
+				"pending",
+				now - 16 * 60_000,
+				now,
+				now - 16 * 60_000,
+			],
+			["poll-alipay-paid", "paid", now - 1, now - 1, now - 1],
+		] as const;
+		await db.batch([
+			db.prepare("UPDATE orders SET status = 'expired', updated_at = 0"),
+			db.prepare(
+				"DELETE FROM order_payment_snapshots WHERE rail_code = 'alipay'",
+			),
+			db.prepare("DELETE FROM orders WHERE payment_asset_id = 'alipay-asset'"),
+			db.prepare(
+				"UPDATE system_settings SET value = '20' WHERE key = 'payments.scan_batch_size'",
+			),
+			db.prepare(
+				"UPDATE system_settings SET value = '0' WHERE key = 'runtime.last_payment_scan_at'",
+			),
+			db
+				.prepare(
+					"INSERT OR IGNORE INTO payment_rails (code, name, kind, adapter, created_at, updated_at) VALUES ('alipay', 'Alipay', 'fiat', 'alipay', ?, ?)",
+				)
+				.bind(now, now),
+			db
+				.prepare(
+					"INSERT OR IGNORE INTO payment_assets (id, rail_code, code, symbol, kind, decimals, created_at, updated_at) VALUES ('alipay-asset', 'alipay', 'CNY', 'CNY', 'fiat', 2, ?, ?)",
+				)
+				.bind(now, now),
+			db
+				.prepare(
+					"INSERT OR IGNORE INTO receiving_methods (id, name, rail_code, target_type, target_value, normalized_target_value, enabled, created_at, updated_at) VALUES ('method-alipay', 'Alipay', 'alipay', 'provider', 'app-id', 'app-id', 1, ?, ?)",
+				)
+				.bind(now, now),
+			...orders.flatMap(([id, status, expiresAt, updatedAt, createdAt]) => [
+				db
+					.prepare(
+						`INSERT INTO orders
+						 (id, external_order_id, status, amount_minor, currency, currency_decimals,
+						  payment_asset_id, received_amount_units, expires_at, paid_at, version,
+						  created_at, updated_at)
+						 VALUES (?, ?, ?, '100', 'CNY', 2, 'alipay-asset', ?, ?, ?, 0, ?, ?)`,
+					)
+					.bind(
+						id,
+						id,
+						status,
+						status === "paid" ? "100" : "0",
+						expiresAt,
+						status === "paid" ? updatedAt : null,
+						createdAt,
+						updatedAt,
+					),
+				db
+					.prepare(
+						`INSERT INTO order_payment_snapshots
+						 (order_id, receiving_method_id, receiving_method_name, rail_code, rail_kind,
+						  asset_id, asset_code, decimals, target_value, adapter,
+						  required_confirmations, expected_amount_units, created_at)
+						 VALUES (?, 'method-alipay', 'Alipay', 'alipay', 'fiat',
+						  'alipay-asset', 'CNY', 2, 'app-id', 'alipay', 1, '100', ?)`,
+					)
+					.bind(id, now),
+			]),
+		]);
+
+		const sendBatch = vi.fn().mockResolvedValue(undefined);
+		await runMaintenance(
+			{ DB: db, PAYMENT_QUEUE: { sendBatch } } as unknown as Env,
+			"*/1 * * * *",
+			dependencies,
+		);
+		const scanned = sendBatch.mock.calls
+			.flatMap(([messages]) => messages)
+			.filter((message) => message.body.kind === "payment.scan")
+			.map((message) => message.body.orderId)
+			.sort();
+		expect(scanned).toEqual([
+			"poll-alipay-pending",
+			"poll-alipay-recent-expired",
+		]);
+	});
+
 	it("dispatches USDT first within the oldest due batch without starving other assets", async () => {
 		const now = Date.now();
 		const pending = [
@@ -325,6 +428,10 @@ describe("payment scan scheduling fairness", () => {
 		] as const;
 		await db.batch([
 			db.prepare("UPDATE orders SET status = 'expired', updated_at = 0"),
+			db.prepare(
+				"DELETE FROM order_payment_snapshots WHERE rail_code = 'alipay'",
+			),
+			db.prepare("DELETE FROM orders WHERE payment_asset_id = 'alipay-asset'"),
 			db.prepare(
 				"UPDATE system_settings SET value = '4' WHERE key = 'payments.scan_batch_size'",
 			),

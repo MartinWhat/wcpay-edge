@@ -12,6 +12,8 @@ import {
 import { handleAlipayNotification } from "#/features/payments/server/alipay-notification";
 import { recordProviderPayment } from "#/features/payments/server/provider-payment";
 import { encryptSecret } from "#/lib/secrets";
+import { enqueueInitialAlipayPoll } from "#/server/queue/alipay-polling";
+import { handlePaymentScan } from "#/server/queue/payment-scan";
 import { applyMigrations } from "./migrations";
 
 const { privateKey, publicKey } = generateKeyPairSync("rsa", {
@@ -22,6 +24,7 @@ const { privateKey, publicKey } = generateKeyPairSync("rsa", {
 const appId = "2014072300007148";
 const configSecret = "alipay-integration-config-secret";
 const orderId = "order-alipay-1";
+const paymentQueueSend = vi.fn().mockResolvedValue(undefined);
 
 describe("Alipay D1 payment flow", () => {
 	let miniflare: Miniflare;
@@ -38,6 +41,7 @@ describe("Alipay D1 payment flow", () => {
 		await applyMigrations(db);
 		env = {
 			DB: db,
+			PAYMENT_QUEUE: { send: paymentQueueSend },
 			WEBHOOK_QUEUE: { send: vi.fn().mockResolvedValue(undefined) },
 		} as unknown as Env;
 	});
@@ -45,6 +49,7 @@ describe("Alipay D1 payment flow", () => {
 	afterAll(async () => miniflare.dispose());
 
 	beforeEach(async () => {
+		paymentQueueSend.mockClear();
 		await seed(db);
 	});
 
@@ -77,6 +82,227 @@ describe("Alipay D1 payment flow", () => {
 			events: 1,
 			deliveries: 1,
 		});
+	});
+
+	it("settles a missed Alipay callback through scheduled status polling", async () => {
+		const fetchMock = vi.fn().mockImplementation(queryResponse);
+		vi.stubGlobal("fetch", fetchMock);
+		const ack = vi.fn();
+		const retry = vi.fn();
+		const message = {
+			id: "alipay-poll-1",
+			timestamp: new Date(),
+			attempts: 1,
+			body: {
+				kind: "payment.scan",
+				version: 1,
+				orderId,
+				receivingMethodId: "receiving-alipay",
+			},
+			ack,
+			retry,
+		} as unknown as Parameters<typeof handlePaymentScan>[0];
+
+		await handlePaymentScan(message, env);
+		expect(ack).toHaveBeenCalledOnce();
+		expect(retry).not.toHaveBeenCalled();
+
+		const duplicateAck = vi.fn();
+		await handlePaymentScan(
+			{
+				...message,
+				id: "alipay-poll-duplicate",
+				ack: duplicateAck,
+			},
+			env,
+		);
+		expect(duplicateAck).toHaveBeenCalledOnce();
+		expect(fetchMock).toHaveBeenCalledOnce();
+
+		await expect(
+			db
+				.prepare(
+					`SELECT o.status, o.received_amount_units,
+					 (SELECT COUNT(*) FROM provider_payments WHERE order_id = o.id) AS payments,
+					 (SELECT COUNT(*) FROM webhook_events WHERE order_id = o.id) AS events
+					 FROM orders o WHERE o.id = ?`,
+				)
+				.bind(orderId)
+				.first(),
+		).resolves.toEqual({
+			status: "paid",
+			received_amount_units: "101",
+			payments: 1,
+			events: 1,
+		});
+	});
+
+	it("starts Alipay polling fifteen seconds after order creation", async () => {
+		await enqueueInitialAlipayPoll(db, env.PAYMENT_QUEUE, {
+			orderId,
+			paymentNetwork: "alipay",
+			receivingMethodId: "receiving-alipay",
+		});
+
+		expect(paymentQueueSend).toHaveBeenCalledWith(
+			expect.objectContaining({
+				kind: "payment.scan",
+				orderId,
+				alipayPolling: true,
+			}),
+			{ delaySeconds: 15 },
+		);
+		await expect(
+			db
+				.prepare("SELECT last_payment_scan_at FROM orders WHERE id = ?")
+				.bind(orderId)
+				.first(),
+		).resolves.toMatchObject({ last_payment_scan_at: expect.any(Number) });
+	});
+
+	it("retries scheduled Alipay queries when the gateway is unavailable", async () => {
+		vi.stubGlobal(
+			"fetch",
+			vi.fn().mockRejectedValue(new Error("gateway unavailable")),
+		);
+		const ack = vi.fn();
+		const retry = vi.fn();
+		await handlePaymentScan(
+			{
+				id: "alipay-poll-failure",
+				timestamp: new Date(),
+				attempts: 1,
+				body: {
+					kind: "payment.scan",
+					version: 1,
+					orderId,
+					receivingMethodId: "receiving-alipay",
+				},
+				ack,
+				retry,
+			} as unknown as Parameters<typeof handlePaymentScan>[0],
+			env,
+		);
+		expect(ack).not.toHaveBeenCalled();
+		expect(retry).toHaveBeenCalledOnce();
+		await expect(
+			db
+				.prepare(
+					"SELECT after FROM audit_logs WHERE action = 'payment.scan_failed' AND target_id = ? ORDER BY created_at DESC LIMIT 1",
+				)
+				.bind(orderId)
+				.first<{ after: string }>(),
+		).resolves.toMatchObject({
+			after: expect.stringContaining('"kind":"network"'),
+		});
+		await expect(
+			db
+				.prepare("SELECT status FROM orders WHERE id = ?")
+				.bind(orderId)
+				.first(),
+		).resolves.toEqual({ status: "pending" });
+	});
+
+	it("uses fifteen-second and sixty-second polling intervals", async () => {
+		const fetchMock = vi.fn().mockImplementation(
+			() =>
+				new Response(
+					JSON.stringify(
+						signedQueryResponse({
+							code: "10000",
+							msg: "Success",
+							out_trade_no: orderId,
+							trade_no: "2026103122000000000001",
+							trade_status: "WAIT_BUYER_PAY",
+						}),
+					),
+				),
+		);
+		vi.stubGlobal("fetch", fetchMock);
+		const retry = vi.fn();
+		const ack = vi.fn();
+		const message = {
+			id: "alipay-poll-pending-1",
+			timestamp: new Date(),
+			attempts: 1,
+			body: {
+				kind: "payment.scan",
+				version: 1,
+				orderId,
+				receivingMethodId: "receiving-alipay",
+				alipayPolling: true,
+			},
+			ack,
+			retry,
+		} as unknown as Parameters<typeof handlePaymentScan>[0];
+
+		await handlePaymentScan(message, env);
+		expect(paymentQueueSend).toHaveBeenCalledWith(
+			expect.objectContaining({ alipayPolling: true }),
+			{ delaySeconds: 15 },
+		);
+		expect(retry).not.toHaveBeenCalled();
+		expect(ack).toHaveBeenCalledOnce();
+
+		await db
+			.prepare("UPDATE orders SET created_at = ? WHERE id = ?")
+			.bind(Date.now() - 5 * 60_000, orderId)
+			.run();
+		paymentQueueSend.mockClear();
+		const finalRetry = vi.fn();
+		const finalAck = vi.fn();
+		await handlePaymentScan(
+			{
+				...message,
+				id: "alipay-poll-pending-final",
+				attempts: 4,
+				retry: finalRetry,
+				ack: finalAck,
+			},
+			env,
+		);
+		expect(finalRetry).not.toHaveBeenCalled();
+		expect(finalAck).toHaveBeenCalledOnce();
+		expect(paymentQueueSend).toHaveBeenCalledWith(
+			expect.objectContaining({ alipayPolling: true }),
+			{ delaySeconds: 60 },
+		);
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+	});
+
+	it("acks queued Alipay polls after the fifteen-minute window", async () => {
+		const createdBeforeWindow = Date.now() - 16 * 60_000;
+		await db
+			.prepare(
+				"UPDATE orders SET status = 'expired', created_at = ? WHERE id = ?",
+			)
+			.bind(createdBeforeWindow, orderId)
+			.run();
+		const fetchMock = vi.fn();
+		vi.stubGlobal("fetch", fetchMock);
+		const ack = vi.fn();
+		const retry = vi.fn();
+
+		await handlePaymentScan(
+			{
+				id: "alipay-poll-past-cutoff",
+				timestamp: new Date(),
+				attempts: 1,
+				body: {
+					kind: "payment.scan",
+					version: 1,
+					orderId,
+					receivingMethodId: "receiving-alipay",
+				},
+				ack,
+				retry,
+			} as unknown as Parameters<typeof handlePaymentScan>[0],
+			env,
+		);
+
+		expect(ack).toHaveBeenCalledOnce();
+		expect(retry).not.toHaveBeenCalled();
+		expect(fetchMock).not.toHaveBeenCalled();
 	});
 
 	it("rejects a tampered notification before querying", async () => {

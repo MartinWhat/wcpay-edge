@@ -1,5 +1,9 @@
 import { createSign, generateKeyPairSync } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
+import {
+	alipayStatusPollDelaySeconds,
+	isAlipayStatusPollOpen,
+} from "#/features/payments/server/alipay-polling";
 import { AlipayProvider } from "#/integrations/payment-rails/alipay";
 
 const { privateKey, publicKey } = generateKeyPairSync("rsa", {
@@ -16,6 +20,29 @@ const config = {
 	endpoint: "https://openapi.alipay.com",
 	timeoutMs: 8000,
 };
+
+describe("Alipay status polling cadence", () => {
+	const createdAt = 1_000_000;
+
+	it("polls every fifteen seconds for the first five minutes", () => {
+		expect(alipayStatusPollDelaySeconds(createdAt, createdAt)).toBe(15);
+		expect(
+			alipayStatusPollDelaySeconds(createdAt, createdAt + 5 * 60_000 - 1),
+		).toBe(15);
+	});
+
+	it("polls every minute from five through fifteen minutes", () => {
+		expect(
+			alipayStatusPollDelaySeconds(createdAt, createdAt + 5 * 60_000),
+		).toBe(60);
+		expect(
+			alipayStatusPollDelaySeconds(createdAt, createdAt + 14 * 60_000),
+		).toBe(60);
+		expect(isAlipayStatusPollOpen(createdAt, createdAt + 15 * 60_000)).toBe(
+			false,
+		);
+	});
+});
 
 describe("AlipayProvider", () => {
 	it("creates a signed website payment URL for CNY minor units", async () => {
@@ -63,6 +90,19 @@ describe("AlipayProvider", () => {
 		});
 	});
 
+	it("accepts a finished paid trade notification", async () => {
+		const provider = await AlipayProvider.create(config);
+		const callback = signedNotification({
+			app_id: config.appId,
+			out_trade_no: "order-001",
+			trade_no: "2026103122000000000001",
+			trade_status: "TRADE_FINISHED",
+			total_amount: "1.01",
+			sign_type: "RSA2",
+		});
+		expect(provider.parseNotification(callback).status).toBe("succeeded");
+	});
+
 	it("queries the gateway through fetch and verifies the response signature", async () => {
 		const response = signedQueryResponse(
 			{
@@ -92,6 +132,28 @@ describe("AlipayProvider", () => {
 				body: expect.stringContaining("method=alipay.trade.query"),
 			}),
 		);
+	});
+
+	it("treats TRADE_FINISHED as a successful query result", async () => {
+		const response = signedQueryResponse(
+			{
+				code: "10000",
+				msg: "Success",
+				out_trade_no: "order-001",
+				trade_no: "2026103122000000000001",
+				trade_status: "TRADE_FINISHED",
+				total_amount: "1.01",
+			},
+			privateKey,
+		);
+		const provider = await AlipayProvider.create(
+			config,
+			vi.fn(async () => new Response(JSON.stringify(response))),
+		);
+		await expect(provider.queryPayment("order-001")).resolves.toMatchObject({
+			status: "succeeded",
+			amountMinor: "101",
+		});
 	});
 
 	it("leaves an unpaid transaction pending", async () => {

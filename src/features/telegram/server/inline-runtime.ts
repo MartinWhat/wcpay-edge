@@ -17,6 +17,7 @@ import type { SupportedLocale } from "#/lib/locales";
 import { unitsToDecimal } from "#/lib/money";
 import { minorToDecimal } from "#/lib/units";
 import { m } from "#/paraglide/messages";
+import { enqueueInitialAlipayPoll } from "#/server/queue/alipay-polling";
 import {
 	parseStoredInlineOrder,
 	type StoredInlineOrder,
@@ -284,6 +285,7 @@ export async function createChosenInlineOrder(
 			},
 			context.baseUrl,
 		);
+		await enqueueInitialAlipayPoll(context.db, context.paymentQueue, order);
 		await context.db
 			.prepare(
 				"UPDATE idempotency_keys SET response_status = 201, response_body = ?, updated_at = ? WHERE key = ?",

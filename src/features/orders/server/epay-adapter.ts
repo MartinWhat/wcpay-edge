@@ -20,6 +20,7 @@ import {
 } from "#/features/orders/server/gmpay-api";
 import { type ApiOrder, getOrder } from "#/features/orders/server/query";
 import { requestId as getRequestId } from "#/server/http";
+import { enqueueInitialAlipayPoll } from "#/server/queue/alipay-polling";
 import {
 	RequestBodyTooLargeError,
 	readLimitedRequestText,
@@ -172,7 +173,7 @@ type OrderCreator = (
 
 export async function handleEpayCreateRequest(
 	request: Request,
-	env: Pick<Env, "DB">,
+	env: Pick<Env, "DB"> & Partial<Pick<Env, "PAYMENT_QUEUE">>,
 	create: OrderCreator = createOrder,
 	responseMode: "gateway" | "mapi" = "gateway",
 ) {
@@ -205,6 +206,7 @@ export async function handleEpayCreateRequest(
 				apiProtocol: "epay",
 			},
 		);
+		await enqueueInitialAlipayPoll(env.DB, env.PAYMENT_QUEUE, order);
 		return epayCreateResponse(order, parsed.data, requestId, responseMode);
 	} catch (error) {
 		if (error instanceof RequestBodyTooLargeError)
@@ -234,7 +236,10 @@ export async function handleEpayCreateRequest(
 	}
 }
 
-export function handleEpayMApiRequest(request: Request, env: Pick<Env, "DB">) {
+export function handleEpayMApiRequest(
+	request: Request,
+	env: Pick<Env, "DB"> & Partial<Pick<Env, "PAYMENT_QUEUE">>,
+) {
 	return handleEpayCreateRequest(request, env, createOrder, "mapi");
 }
 

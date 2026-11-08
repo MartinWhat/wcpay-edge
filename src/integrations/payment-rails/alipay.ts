@@ -235,7 +235,7 @@ export class AlipayProvider implements FiatPaymentProvider {
 			!input.trade_no ||
 			!/^\d+$/.test(input.trade_no) ||
 			!input.total_amount ||
-			input.trade_status !== "TRADE_SUCCESS"
+			!isPaidTradeStatus(input.trade_status)
 		)
 			throw new AlipayError("Alipay notification is incomplete", "provider");
 		return {
@@ -262,12 +262,11 @@ export class AlipayProvider implements FiatPaymentProvider {
 			return null;
 		if (parsed.data.code !== "10000")
 			throw new AlipayError("Alipay rejected the payment query", "provider");
-		const status =
-			parsed.data.trade_status === "TRADE_SUCCESS"
-				? "succeeded"
-				: parsed.data.trade_status === "TRADE_CLOSED"
-					? "rejected"
-					: "pending";
+		const status = isPaidTradeStatus(parsed.data.trade_status)
+			? "succeeded"
+			: parsed.data.trade_status === "TRADE_CLOSED"
+				? "rejected"
+				: "pending";
 		if (
 			status === "succeeded" &&
 			(!parsed.data.trade_no ||
@@ -332,6 +331,10 @@ export class AlipayProvider implements FiatPaymentProvider {
 			);
 		return { data };
 	}
+}
+
+function isPaidTradeStatus(status: string | undefined) {
+	return status === "TRADE_SUCCESS" || status === "TRADE_FINISHED";
 }
 
 function decimalToMinor(value: string, decimals: number) {
