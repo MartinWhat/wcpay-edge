@@ -269,6 +269,20 @@ describe("AlipayProvider", () => {
 		expect(JSON.stringify(error)).not.toContain("private-sign");
 	});
 
+	it("calls the injected fetcher without a receiver", async () => {
+		const receivers: unknown[] = [];
+		const fetcher = function (this: unknown) {
+			receivers.push(this);
+			throw new TypeError("Illegal invocation");
+		} as unknown as typeof fetch;
+		const provider = await AlipayProvider.create(config, fetcher);
+
+		await expect(provider.queryPayment("order-001")).rejects.toMatchObject({
+			code: "ALIPAY_GATEWAY_FETCH_FAILED",
+		});
+		expect(receivers).toEqual([undefined]);
+	});
+
 	it("treats TRADE_FINISHED as a successful query result", async () => {
 		const response = signedQueryResponse(
 			{

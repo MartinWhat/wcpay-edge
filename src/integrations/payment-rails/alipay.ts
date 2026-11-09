@@ -124,10 +124,11 @@ export class AlipayProvider implements FiatPaymentProvider {
 	readonly kind = "fiat" as const;
 	readonly config: AlipayConfig;
 	readonly sdk: SdkClient;
+	private readonly fetcher: typeof fetch;
 
 	private constructor(
 		configuration: unknown,
-		private readonly fetcher: typeof fetch = fetch,
+		fetcher: typeof fetch = fetch,
 		sdk: SdkClient,
 	) {
 		const parsed = configSchema.safeParse(configuration);
@@ -138,6 +139,9 @@ export class AlipayProvider implements FiatPaymentProvider {
 				"ALIPAY_CONFIGURATION_INVALID",
 			);
 		this.config = parsed.data;
+		// workerd rejects `fetch` called with a non-global receiver, so the stored
+		// fetcher is wrapped to stay receiver-free when invoked as `this.fetcher`.
+		this.fetcher = (input, init) => fetcher(input, init);
 		this.sdk = sdk;
 	}
 
