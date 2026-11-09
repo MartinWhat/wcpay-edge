@@ -13,6 +13,7 @@ import { reviewAdminAlipayOrder } from "#/features/orders/server/admin-actions";
 import { handleAlipayNotification } from "#/features/payments/server/alipay-notification";
 import { loadAlipayProviderForOrder } from "#/features/payments/server/alipay-provider";
 import { recordProviderPayment } from "#/features/payments/server/provider-payment";
+import { AlipayError } from "#/integrations/payment-rails/alipay";
 import { encryptSecret } from "#/lib/secrets";
 import { enqueueInitialAlipayPoll } from "#/server/queue/alipay-polling";
 import { handlePaymentScan } from "#/server/queue/payment-scan";
@@ -186,6 +187,51 @@ describe("Alipay D1 payment flow", () => {
 		).resolves.toEqual({
 			action: "order.alipay_query_reviewed",
 			actor_user_id: "admin",
+		});
+	});
+
+	it("returns transport diagnostics in manual Alipay review results", async () => {
+		const now = Date.now();
+		await db
+			.prepare(
+				"INSERT OR IGNORE INTO users (id, name, email, email_verified, enabled, created_at, updated_at) VALUES ('admin', 'Admin', 'admin@example.test', 1, 1, ?, ?)",
+			)
+			.bind(now, now)
+			.run();
+
+		const result = await reviewAdminAlipayOrder(
+			env,
+			orderId,
+			{ actorUserId: "admin", requestId: "review-error", ipAddress: null },
+			async () => {
+				throw new AlipayError(
+					"Alipay gateway request failed",
+					"network",
+					"ALIPAY_GATEWAY_FETCH_FAILED",
+					{
+						operation: "alipay.trade.query",
+						endpointHost: "openapi.alipay.com",
+						durationMs: 17,
+						errorName: "TypeError",
+						causeName: "Error",
+						transportCode: "EAI_AGAIN",
+						transportMessage: "Temporary DNS resolution error",
+					},
+				);
+			},
+		);
+
+		expect(result).toMatchObject({
+			outcome: "error",
+			response: null,
+			error: {
+				kind: "network",
+				code: "ALIPAY_GATEWAY_FETCH_FAILED",
+				operation: "alipay.trade.query",
+				endpointHost: "openapi.alipay.com",
+				transportCode: "EAI_AGAIN",
+				transportMessage: "Temporary DNS resolution error",
+			},
 		});
 	});
 

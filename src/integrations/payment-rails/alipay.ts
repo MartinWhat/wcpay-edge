@@ -86,11 +86,18 @@ type SdkClient = {
 };
 
 type AlipayErrorKind = "configuration" | "network" | "provider" | "signature";
+type AlipayOperation = "alipay.trade.query" | "alipay.trade.precreate";
 export type AlipayErrorDiagnostics = {
 	httpStatus?: number;
 	gatewayCode?: string;
 	gatewaySubCode?: string;
 	transportCode?: string;
+	operation?: AlipayOperation;
+	endpointHost?: string;
+	durationMs?: number;
+	errorName?: string;
+	causeName?: string;
+	transportMessage?: string;
 };
 
 const defaultAlipayErrorCodes: Record<AlipayErrorKind, string> = {
@@ -188,7 +195,10 @@ export class AlipayProvider implements FiatPaymentProvider {
 				},
 			});
 			try {
-				const response = await this.requestGateway(signed);
+				const response = await this.requestGateway(
+					signed,
+					"alipay.trade.precreate",
+				);
 				const parsed = precreateResponseSchema.safeParse(response.data);
 				if (
 					!parsed.success ||
@@ -319,7 +329,10 @@ export class AlipayProvider implements FiatPaymentProvider {
 				"ALIPAY_QUERY_SIGNING_FAILED",
 			);
 		}
-		const gatewayResponse = await this.requestGateway(signed);
+		const gatewayResponse = await this.requestGateway(
+			signed,
+			"alipay.trade.query",
+		);
 		const parsed = queryResponseSchema.safeParse(gatewayResponse.data);
 		if (!parsed.success)
 			throw new AlipayError(
@@ -387,7 +400,8 @@ export class AlipayProvider implements FiatPaymentProvider {
 		};
 	}
 
-	private async requestGateway(signed: string) {
+	private async requestGateway(signed: string, operation: AlipayOperation) {
+		const startedAt = Date.now();
 		let response: Response;
 		try {
 			response = await this.fetcher(
@@ -405,12 +419,17 @@ export class AlipayProvider implements FiatPaymentProvider {
 			const timedOut =
 				error instanceof Error &&
 				(error.name === "TimeoutError" || error.name === "AbortError");
-			const transportCode = transportErrorCode(error);
+			const transportDiagnostics = transportErrorDiagnostics(error);
 			throw new AlipayError(
 				"Alipay gateway request failed",
 				"network",
 				timedOut ? "ALIPAY_GATEWAY_TIMEOUT" : "ALIPAY_GATEWAY_FETCH_FAILED",
-				transportCode ? { transportCode } : {},
+				{
+					operation,
+					endpointHost: new URL(this.config.endpoint).hostname,
+					durationMs: Math.max(0, Date.now() - startedAt),
+					...transportDiagnostics,
+				},
 			);
 		}
 		if (!response.ok)
@@ -461,8 +480,10 @@ function isPaidTradeStatus(status: string | undefined) {
 	return status === "TRADE_SUCCESS" || status === "TRADE_FINISHED";
 }
 
-function safeDiagnosticCode(value: string | undefined) {
-	return value && /^[A-Za-z0-9_.-]{1,64}$/.test(value) ? value : undefined;
+function safeDiagnosticCode(value: unknown) {
+	return typeof value === "string" && /^[A-Za-z0-9_.-]{1,64}$/.test(value)
+		? value
+		: undefined;
 }
 
 function queryResponseErrorDiagnostics(response: AlipayQueryResponse) {
@@ -474,16 +495,33 @@ function queryResponseErrorDiagnostics(response: AlipayQueryResponse) {
 	};
 }
 
-function transportErrorCode(error: unknown) {
-	if (!isRecord(error)) return undefined;
-	const directCode = safeDiagnosticCode(
-		typeof error.code === "string" ? error.code : undefined,
-	);
-	if (directCode) return directCode;
+function safeDiagnosticMessage(value: unknown) {
+	if (
+		typeof value !== "string" ||
+		value.length === 0 ||
+		value.length > 160 ||
+		!/^[A-Za-z0-9 _.,:;()-]+$/.test(value) ||
+		/(authorization|token|secret|private[ _-]?key|signature|sign=)/i.test(value)
+	)
+		return undefined;
+	return value;
+}
+
+function transportErrorDiagnostics(error: unknown) {
+	if (!isRecord(error)) return {};
 	const cause = isRecord(error.cause) ? error.cause : null;
-	return safeDiagnosticCode(
-		cause && typeof cause.code === "string" ? cause.code : undefined,
+	const transportCode = safeDiagnosticCode(error.code ?? cause?.code);
+	const errorName = safeDiagnosticCode(error.name);
+	const causeName = safeDiagnosticCode(cause?.name);
+	const transportMessage = safeDiagnosticMessage(
+		cause?.message ?? error.message,
 	);
+	return {
+		...(transportCode ? { transportCode } : {}),
+		...(errorName ? { errorName } : {}),
+		...(causeName ? { causeName } : {}),
+		...(transportMessage ? { transportMessage } : {}),
+	};
 }
 
 function decimalToMinor(value: string, decimals: number) {

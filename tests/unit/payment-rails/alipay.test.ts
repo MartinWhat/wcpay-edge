@@ -216,9 +216,11 @@ describe("AlipayProvider", () => {
 		});
 	});
 
-	it("records a safe transport code from a failed gateway request", async () => {
+	it("returns safe transport details for a failed gateway request", async () => {
 		const fetchError = Object.assign(new TypeError("fetch failed"), {
-			cause: { code: "EAI_AGAIN" },
+			cause: Object.assign(new Error("Temporary DNS resolution error"), {
+				code: "EAI_AGAIN",
+			}),
 		});
 		const provider = await AlipayProvider.create(
 			config,
@@ -226,11 +228,44 @@ describe("AlipayProvider", () => {
 				throw fetchError;
 			}),
 		);
+		const error = await provider
+			.queryPayment("order-001")
+			.catch((value: unknown) => value);
 
-		await expect(provider.queryPayment("order-001")).rejects.toMatchObject({
+		expect(error).toMatchObject({
 			code: "ALIPAY_GATEWAY_FETCH_FAILED",
-			diagnostics: { transportCode: "EAI_AGAIN" },
+			diagnostics: {
+				operation: "alipay.trade.query",
+				endpointHost: "openapi.alipay.com",
+				transportCode: "EAI_AGAIN",
+				errorName: "TypeError",
+				causeName: "Error",
+				transportMessage: "Temporary DNS resolution error",
+				durationMs: expect.any(Number),
+			},
 		});
+	});
+
+	it("does not expose URL query values in transport diagnostics", async () => {
+		const fetchError = Object.assign(new TypeError("fetch failed"), {
+			cause: new Error(
+				"request https://openapi.alipay.com/gateway.do?sign=private-sign failed",
+			),
+		});
+		const provider = await AlipayProvider.create(
+			config,
+			vi.fn(async () => {
+				throw fetchError;
+			}),
+		);
+		const error = await provider
+			.queryPayment("order-001")
+			.catch((value: unknown) => value);
+
+		expect(error).toMatchObject({
+			code: "ALIPAY_GATEWAY_FETCH_FAILED",
+		});
+		expect(JSON.stringify(error)).not.toContain("private-sign");
 	});
 
 	it("treats TRADE_FINISHED as a successful query result", async () => {
