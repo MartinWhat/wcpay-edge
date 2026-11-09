@@ -63,6 +63,7 @@ describe("Cloudflare deployment contract", () => {
 			JSON.stringify({
 				type: "module",
 				scripts: {
+					"generate-paraglide": "true",
 					predeploy: packageJson.scripts?.predeploy,
 					deploy: packageJson.scripts?.deploy,
 				},
