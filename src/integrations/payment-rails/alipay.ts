@@ -496,15 +496,21 @@ function queryResponseErrorDiagnostics(response: AlipayQueryResponse) {
 }
 
 function safeDiagnosticMessage(value: unknown) {
+	if (typeof value !== "string" || value.length === 0 || value.length > 1024)
+		return undefined;
+	const message = value
+		.replace(/https?:\/\/\S+/gi, "redacted-url")
+		.replace(/\s+/g, " ")
+		.trim();
 	if (
-		typeof value !== "string" ||
-		value.length === 0 ||
-		value.length > 160 ||
-		!/^[A-Za-z0-9 _.,:;()-]+$/.test(value) ||
-		/(authorization|token|secret|private[ _-]?key|signature|sign=)/i.test(value)
+		message.length > 160 ||
+		!/^[A-Za-z0-9 _.,:;()-]+$/.test(message) ||
+		/(authorization|token|secret|private[ _-]?key|signature|sign=)/i.test(
+			message,
+		)
 	)
 		return undefined;
-	return value;
+	return message;
 }
 
 function transportErrorDiagnostics(error: unknown) {

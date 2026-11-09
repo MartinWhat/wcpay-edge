@@ -264,6 +264,7 @@ describe("AlipayProvider", () => {
 
 		expect(error).toMatchObject({
 			code: "ALIPAY_GATEWAY_FETCH_FAILED",
+			diagnostics: { transportMessage: "request redacted-url failed" },
 		});
 		expect(JSON.stringify(error)).not.toContain("private-sign");
 	});
