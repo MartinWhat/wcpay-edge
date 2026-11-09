@@ -8,6 +8,8 @@ export function isPublicApiRequest(request: Request) {
 	)
 		return true;
 	return (
+		(pathname === "/api/providers/alipay/notify" &&
+			request.method === "POST") ||
 		(pathname === "/api/providers/okpay/notify" && request.method === "POST") ||
 		(/^\/api\/providers\/alchemy\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
 			pathname,

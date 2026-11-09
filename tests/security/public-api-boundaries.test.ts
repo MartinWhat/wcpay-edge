@@ -9,6 +9,8 @@ const telegramBotId = "11111111-1111-4111-8111-111111111111";
 
 describe("signed and checkout public API boundaries", () => {
 	it("only exposes the exact provider and Telegram webhook shapes", () => {
+		expect(publicRequest("/api/providers/alipay/notify", "POST")).toBe(true);
+		expect(publicRequest("/api/providers/alipay/notify", "GET")).toBe(false);
 		expect(publicRequest("/api/providers/okpay/notify", "POST")).toBe(true);
 		expect(publicRequest("/api/providers/okpay/notify", "GET")).toBe(false);
 		expect(
@@ -51,6 +53,7 @@ describe("signed and checkout public API boundaries", () => {
 		for (const path of [
 			"/api/unknown",
 			"/api/site-logo/extra",
+			"/api/providers/alipay/notify/extra",
 			"/api/providers/okpay/notify/extra",
 			`/api/providers/alchemy/${telegramBotId}/extra`,
 			`/api/telegram/${telegramBotId}/webhook/extra`,
