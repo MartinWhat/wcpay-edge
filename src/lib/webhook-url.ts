@@ -76,7 +76,9 @@ export async function resolveWebhookHostname(
 				`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(hostname)}&type=${type}`,
 				{
 					headers: { accept: "application/dns-json" },
-					redirect: "error",
+					// workerd rejects redirect: "error"; manual plus the !response.ok
+					// check below keeps a DoH redirect fatal instead of followed.
+					redirect: "manual",
 					signal: AbortSignal.timeout(3_000),
 				},
 			),

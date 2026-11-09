@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
 	assertSafeResolvedWebhookUrl,
 	isSafeWebhookUrl,
+	resolveWebhookHostname,
 } from "#/lib/webhook-url";
 
 describe("webhook URL validation", () => {
@@ -65,5 +66,31 @@ describe("webhook URL validation", () => {
 				async () => [],
 			),
 		).resolves.toBe(false);
+	});
+
+	it("resolves through DoH with manual redirects", async () => {
+		const redirects: Array<RequestInit["redirect"]> = [];
+		const fetcher = (async (input: RequestInfo | URL, init?: RequestInit) => {
+			redirects.push(init?.redirect);
+			const type = new URL(String(input)).searchParams.get("type");
+			return Response.json({
+				Status: 0,
+				Answer: type === "A" ? [{ type: 1, data: "93.184.216.34" }] : [],
+			});
+		}) as typeof fetch;
+
+		await expect(
+			resolveWebhookHostname("merchant.example", fetcher),
+		).resolves.toEqual(["93.184.216.34"]);
+		expect(redirects).toEqual(["manual", "manual"]);
+	});
+
+	it("fails closed when the DoH endpoint redirects", async () => {
+		const fetcher = (async () =>
+			new Response(null, { status: 302 })) as typeof fetch;
+
+		await expect(
+			resolveWebhookHostname("merchant.example", fetcher),
+		).rejects.toThrow("Webhook DNS resolution failed");
 	});
 });
