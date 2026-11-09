@@ -81,6 +81,7 @@ const permissionContracts = [
 			"simulateDevelopmentOrderStatusFn",
 			"simulateOrderPaymentFn",
 			"checkAdminOrderPaymentFn",
+			"reviewAdminAlipayOrderFn",
 			"cancelAdminOrderFn",
 			"refundAdminOrderFn",
 			"resendOrderNotificationFn",

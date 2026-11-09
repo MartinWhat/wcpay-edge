@@ -18,6 +18,7 @@ import {
 	queueAdminPaymentCheck,
 	recordExternalRefund,
 	resendOrderNotification,
+	reviewAdminAlipayOrder,
 } from "#/features/orders/server/admin-actions";
 import { createOrder } from "#/features/orders/server/create";
 import {
@@ -25,7 +26,9 @@ import {
 	InvalidOrderTransitionError,
 	type TransitionReason,
 } from "#/features/orders/state-machine";
+import { loadAlipayProviderForOrder } from "#/features/payments/server/alipay-provider";
 import { recordPaymentTransaction } from "#/features/payments/server/process";
+import { AlipayError } from "#/integrations/payment-rails/alipay";
 import { DomainError } from "#/lib/domain-error";
 import { unitsToDecimal } from "#/lib/money";
 import { minorToDecimal } from "#/lib/units";
@@ -474,6 +477,33 @@ export const checkAdminOrderPaymentFn = createServerFn({ method: "POST" })
 				actorUserId: user.id,
 				requestId: requestId(request),
 				ipAddress: request.headers.get("cf-connecting-ip"),
+			},
+		);
+	});
+
+export const reviewAdminAlipayOrderFn = createServerFn({ method: "POST" })
+	.validator((input) => orderIdSchema.parse(input))
+	.handler(async ({ data }) => {
+		const { request, user, env } = await adminActionContext(
+			systemPermission("orders", "update"),
+		);
+		return reviewAdminAlipayOrder(
+			env,
+			data.orderId,
+			{
+				actorUserId: user.id,
+				requestId: requestId(request),
+				ipAddress: request.headers.get("cf-connecting-ip"),
+			},
+			async () => {
+				const provider = await loadAlipayProviderForOrder(env.DB, data.orderId);
+				if (!provider)
+					throw new AlipayError(
+						"Alipay channel credentials are missing",
+						"configuration",
+						"ALIPAY_CREDENTIALS_MISSING",
+					);
+				return provider.queryPaymentWithDiagnostics(data.orderId);
 			},
 		);
 	});

@@ -9,7 +9,12 @@ import {
 	prepareOrderStatusEvent,
 } from "#/features/payments/server/order-status-event";
 import type { PaymentRuntime } from "#/features/payments/server/payment-events";
+import { recordProviderPayment } from "#/features/payments/server/provider-payment";
 import type { PaymentScanMessage } from "#/features/payments/types";
+import {
+	AlipayError,
+	type AlipayQueryInspection,
+} from "#/integrations/payment-rails/alipay";
 import { DomainError } from "#/lib/domain-error";
 
 export interface AdminOrderActionContext {
@@ -79,6 +84,105 @@ export async function queueAdminPaymentCheck(
 		)
 		.run();
 	return { queued: true };
+}
+
+export async function reviewAdminAlipayOrder(
+	env: Pick<Env, "DB"> & { WEBHOOK_QUEUE?: Env["WEBHOOK_QUEUE"] },
+	orderId: string,
+	context: AdminOrderActionContext,
+	queryProvider: () => Promise<AlipayQueryInspection>,
+) {
+	const order = await env.DB.prepare(
+		"SELECT o.status, o.is_test, ops.rail_code, ops.rail_kind " +
+			"FROM orders o JOIN order_payment_snapshots ops ON ops.order_id = o.id " +
+			"WHERE o.id = ? LIMIT 1",
+	)
+		.bind(orderId)
+		.first<{
+			status: string;
+			is_test: number;
+			rail_code: string;
+			rail_kind: string;
+		}>();
+	if (
+		!order ||
+		order.is_test === 1 ||
+		order.rail_code !== "alipay" ||
+		order.rail_kind !== "fiat"
+	)
+		throw new DomainError(
+			"order_payment_target_not_found",
+			404,
+			"Alipay order not found",
+		);
+
+	const currentStatus = statusOf(order.status);
+	let inspection: AlipayQueryInspection | null = null;
+	let queryError: ReturnType<typeof summarizeAlipayError> | null = null;
+	try {
+		inspection = await queryProvider();
+	} catch (error) {
+		queryError = summarizeAlipayError(error);
+	}
+	const now = Date.now();
+	await env.DB.prepare(
+		"INSERT INTO audit_logs " +
+			"(id, actor_user_id, action, target_type, target_id, request_id, ip_address, after, created_at) " +
+			"VALUES (?, ?, 'order.alipay_query_reviewed', 'order', ?, ?, ?, ?, ?)",
+	)
+		.bind(
+			crypto.randomUUID(),
+			context.actorUserId,
+			orderId,
+			context.requestId,
+			context.ipAddress,
+			JSON.stringify({
+				provider: "alipay",
+				outcome: inspection?.outcome ?? "error",
+				gatewayCode: inspection?.response.code,
+				gatewaySubCode: inspection?.response.subCode,
+				tradeStatus: inspection?.response.tradeStatus,
+				errorCode: queryError?.code,
+			}),
+			now,
+		)
+		.run();
+
+	let settlement: { duplicate: boolean; status: OrderStatus } | null = null;
+	let reconciliationError: string | null = null;
+	if (inspection?.payment?.status === "succeeded") {
+		if (!env.WEBHOOK_QUEUE) {
+			reconciliationError = "order_webhook_queue_unavailable";
+		} else {
+			try {
+				settlement = await recordProviderPayment(
+					{ DB: env.DB, WEBHOOK_QUEUE: env.WEBHOOK_QUEUE },
+					orderId,
+					"alipay",
+					inspection.payment,
+				);
+			} catch (error) {
+				reconciliationError =
+					error instanceof DomainError
+						? error.code
+						: "PAYMENT_RECONCILIATION_FAILED";
+			}
+		}
+	}
+	return {
+		outcome: inspection?.outcome ?? "error",
+		response: inspection?.response ?? null,
+		error: queryError,
+		localStatus: settlement?.status ?? currentStatus,
+		settlement,
+		reconciliationError,
+	};
+}
+
+function summarizeAlipayError(error: unknown) {
+	if (error instanceof AlipayError)
+		return { kind: error.kind, code: error.code, ...error.diagnostics };
+	return { kind: "provider" as const, code: "ALIPAY_UNEXPECTED_ERROR" };
 }
 
 export async function cancelOrderAsAdmin(

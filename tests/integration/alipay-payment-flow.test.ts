@@ -9,7 +9,9 @@ import {
 	it,
 	vi,
 } from "vitest";
+import { reviewAdminAlipayOrder } from "#/features/orders/server/admin-actions";
 import { handleAlipayNotification } from "#/features/payments/server/alipay-notification";
+import { loadAlipayProviderForOrder } from "#/features/payments/server/alipay-provider";
 import { recordProviderPayment } from "#/features/payments/server/provider-payment";
 import { encryptSecret } from "#/lib/secrets";
 import { enqueueInitialAlipayPoll } from "#/server/queue/alipay-polling";
@@ -134,6 +136,56 @@ describe("Alipay D1 payment flow", () => {
 			received_amount_units: "101",
 			payments: 1,
 			events: 1,
+		});
+	});
+
+	it("reviews and settles a paid historical Alipay order", async () => {
+		vi.stubGlobal("fetch", vi.fn().mockImplementation(queryResponse));
+		await db
+			.prepare("UPDATE orders SET status = 'expired' WHERE id = ?")
+			.bind(orderId)
+			.run();
+		const now = Date.now();
+		await db
+			.prepare(
+				"INSERT OR IGNORE INTO users (id, name, email, email_verified, enabled, created_at, updated_at) VALUES ('admin', 'Admin', 'admin@example.test', 1, 1, ?, ?)",
+			)
+			.bind(now, now)
+			.run();
+		const result = await reviewAdminAlipayOrder(
+			env,
+			orderId,
+			{ actorUserId: "admin", requestId: "review-1", ipAddress: null },
+			async () => {
+				const provider = await loadAlipayProviderForOrder(db, orderId);
+				if (!provider) throw new Error("Missing Alipay test provider");
+				return provider.queryPaymentWithDiagnostics(orderId);
+			},
+		);
+
+		expect(result).toMatchObject({
+			outcome: "success",
+			response: { tradeStatus: "TRADE_SUCCESS", totalAmount: "1.01" },
+			localStatus: "paid",
+			settlement: { duplicate: false, status: "paid" },
+		});
+		expect(JSON.stringify(result)).not.toContain("buyer_logon_id");
+		await expect(
+			db
+				.prepare("SELECT status FROM orders WHERE id = ?")
+				.bind(orderId)
+				.first(),
+		).resolves.toEqual({ status: "paid" });
+		await expect(
+			db
+				.prepare(
+					"SELECT action, actor_user_id FROM audit_logs WHERE target_id = ? AND action = 'order.alipay_query_reviewed'",
+				)
+				.bind(orderId)
+				.first(),
+		).resolves.toEqual({
+			action: "order.alipay_query_reviewed",
+			actor_user_id: "admin",
 		});
 	});
 
@@ -421,6 +473,7 @@ function queryResponse() {
 				trade_no: "2026103122000000000001",
 				trade_status: "TRADE_SUCCESS",
 				total_amount: "1.01",
+				buyer_logon_id: "buyer@example.test",
 			}),
 		),
 	);

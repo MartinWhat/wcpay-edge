@@ -3,6 +3,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import {
 	Ban,
 	ExternalLink,
+	LoaderCircle,
 	MoreHorizontal,
 	Play,
 	RefreshCw,
@@ -18,6 +19,14 @@ import { ModalForm } from "#/components/pro/form";
 import { ProTable, type ProTableState } from "#/components/pro/table";
 import { StatusBadge, statusLabel } from "#/components/status-badge";
 import { Badge } from "#/components/ui/badge";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "#/components/ui/dialog";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -37,6 +46,7 @@ import {
 	listAdminOrdersFn,
 	refundAdminOrderFn,
 	resendOrderNotificationFn,
+	reviewAdminAlipayOrderFn,
 	simulateDevelopmentOrderStatusFn,
 	simulateOrderPaymentFn,
 } from "#/features/orders/server/admin";
@@ -53,6 +63,7 @@ import { getLocale } from "#/paraglide/runtime";
 type OrderRecord = Awaited<
 	ReturnType<typeof listAdminOrdersFn>
 >["items"][number];
+type AlipayReviewResult = Awaited<ReturnType<typeof reviewAdminAlipayOrderFn>>;
 
 export function OrdersPage() {
 	const { permissions } = useNavigation();
@@ -71,6 +82,11 @@ export function OrdersPage() {
 	const [simulatingOrder, setSimulatingOrder] = useState<OrderRecord | null>(
 		null,
 	);
+	const [alipayReview, setAlipayReview] = useState<{
+		order: OrderRecord;
+		result?: AlipayReviewResult;
+		requestFailed?: boolean;
+	} | null>(null);
 	const [developmentToolsEnabled, setDevelopmentToolsEnabled] = useState(
 		import.meta.env.DEV,
 	);
@@ -136,6 +152,21 @@ export function OrdersPage() {
 		},
 		onError: showError,
 	});
+	const reviewAlipay = useMutation({
+		mutationFn: reviewAdminAlipayOrderFn,
+		onSuccess: (result) => {
+			setAlipayReview((current) =>
+				current ? { ...current, result } : current,
+			);
+			refresh();
+		},
+		onError: (error) => {
+			setAlipayReview((current) =>
+				current ? { ...current, requestFailed: true } : current,
+			);
+			showError(error);
+		},
+	});
 	const cancel = useMutation({
 		mutationFn: cancelAdminOrderFn,
 		onSuccess: () => {
@@ -158,6 +189,10 @@ export function OrdersPage() {
 		onSuccess: () => toast.success(m.orders_notification_queued()),
 		onError: showError,
 	});
+	const startAlipayReview = (order: OrderRecord) => {
+		setAlipayReview({ order });
+		reviewAlipay.mutate({ data: { orderId: order.id } });
+	};
 	const columns: ColumnDef<OrderRecord>[] = [
 		{
 			accessorKey: "externalOrderId",
@@ -249,8 +284,22 @@ export function OrdersPage() {
 						permissions,
 						systemPermission("orders", "update"),
 					);
+				const canReviewAlipay =
+					row.original.railKind === "fiat" &&
+					row.original.network === "alipay" &&
+					!row.original.isTest &&
+					hasSystemPermission(
+						permissions,
+						systemPermission("orders", "update"),
+					);
 				if (
-					!(canOpenTestTools || active || refundable || row.original.notifyUrl)
+					!(
+						canOpenTestTools ||
+						canReviewAlipay ||
+						active ||
+						refundable ||
+						row.original.notifyUrl
+					)
 				)
 					return null;
 				return (
@@ -299,7 +348,16 @@ export function OrdersPage() {
 										{m.orders_resend_notification()}
 									</DropdownMenuItem>
 								) : null}
-								{active && (
+								{canReviewAlipay ? (
+									<DropdownMenuItem
+										disabled={reviewAlipay.isPending}
+										onClick={() => startAlipayReview(row.original)}
+									>
+										<RefreshCw />
+										{m.orders_alipay_review()}
+									</DropdownMenuItem>
+								) : null}
+								{active && row.original.network !== "alipay" && (
 									<DropdownMenuItem
 										disabled={checkPayment.isPending}
 										onClick={() =>
@@ -501,6 +559,60 @@ export function OrdersPage() {
 					onFinishFailed={showError}
 				/>
 			) : null}
+			{alipayReview ? (
+				<Dialog open onOpenChange={(open) => !open && setAlipayReview(null)}>
+					<DialogContent className="sm:max-w-2xl">
+						<DialogHeader>
+							<DialogTitle>{m.orders_alipay_review_title()}</DialogTitle>
+							<DialogDescription>
+								{m.orders_alipay_review_description()}
+								<span className="mt-1 block break-all font-mono text-xs">
+									{alipayReview.order.externalOrderId}
+								</span>
+							</DialogDescription>
+						</DialogHeader>
+						{reviewAlipay.isPending ? (
+							<div
+								className="flex items-center gap-2 py-4 text-sm text-muted-foreground"
+								role="status"
+								aria-live="polite"
+							>
+								<LoaderCircle className="size-4 animate-spin" />
+								{m.orders_alipay_review_loading()}
+							</div>
+						) : alipayReview.requestFailed ? (
+							<p className="py-4 text-sm text-destructive" role="alert">
+								{m.orders_alipay_review_request_failed()}
+							</p>
+						) : alipayReview.result ? (
+							<div className="grid min-h-0 gap-2">
+								<p className="text-sm font-medium">
+									{alipayReviewOutcomeLabel(alipayReview.result.outcome)}
+								</p>
+								<p className="text-xs text-muted-foreground">
+									{m.orders_alipay_review_response()}
+								</p>
+								<pre className="max-h-[55vh] overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted p-3 font-mono text-xs">
+									{JSON.stringify(alipayReview.result, null, 2)}
+								</pre>
+							</div>
+						) : null}
+						<DialogFooter>
+							<ProButton
+								variant="outline"
+								disabled={reviewAlipay.isPending}
+								onClick={() => startAlipayReview(alipayReview.order)}
+							>
+								<RefreshCw />
+								{m.orders_alipay_review_retry()}
+							</ProButton>
+							<ProButton onClick={() => setAlipayReview(null)}>
+								{m.common_close()}
+							</ProButton>
+						</DialogFooter>
+					</DialogContent>
+				</Dialog>
+			) : null}
 		</>
 	);
 }
@@ -517,4 +629,19 @@ function paymentKindLabel(kind: OrderRecord["railKind"]) {
 		wallet: m.nav_wallets(),
 		"": m.common_unknown(),
 	}[kind];
+}
+
+function alipayReviewOutcomeLabel(outcome: AlipayReviewResult["outcome"]) {
+	switch (outcome) {
+		case "success":
+			return m.orders_alipay_review_found();
+		case "not_found":
+			return m.orders_alipay_review_not_found();
+		case "rejected":
+			return m.orders_alipay_review_rejected();
+		case "mismatch":
+			return m.orders_alipay_review_mismatch();
+		case "error":
+			return m.orders_alipay_review_error();
+	}
 }

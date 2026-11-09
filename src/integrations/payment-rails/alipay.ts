@@ -29,14 +29,16 @@ const configSchema = z
 	.strict();
 
 const queryResponseSchema = z.object({
-	code: z.string(),
-	msg: z.string(),
-	sub_code: z.string().optional(),
-	out_trade_no: z.string().optional(),
-	trade_no: z.string().optional(),
-	trade_status: z.string().optional(),
-	total_amount: z.string().optional(),
-	receipt_amount: z.string().optional(),
+	code: z.string().max(64),
+	msg: z.string().max(256),
+	sub_code: z.string().max(128).optional(),
+	sub_msg: z.string().max(256).optional(),
+	out_trade_no: z.string().max(128).optional(),
+	trade_no: z.string().max(64).optional(),
+	trade_status: z.string().max(64).optional(),
+	total_amount: z.string().max(32).optional(),
+	receipt_amount: z.string().max(32).optional(),
+	send_pay_date: z.string().max(64).optional(),
 });
 
 const precreateResponseSchema = z.object({
@@ -47,6 +49,23 @@ const precreateResponseSchema = z.object({
 });
 
 export type AlipayConfig = z.infer<typeof configSchema>;
+export type AlipayQueryResponse = {
+	code: string;
+	message: string;
+	subCode: string | null;
+	subMessage: string | null;
+	externalOrderId: string | null;
+	providerTradeId: string | null;
+	tradeStatus: string | null;
+	totalAmount: string | null;
+	receiptAmount: string | null;
+	paidAt: string | null;
+};
+export type AlipayQueryInspection = {
+	outcome: "success" | "not_found" | "rejected" | "mismatch";
+	response: AlipayQueryResponse;
+	payment: ProviderPayment | null;
+};
 type SdkClient = {
 	pageExecute(
 		method: string,
@@ -267,6 +286,27 @@ export class AlipayProvider implements FiatPaymentProvider {
 	}
 
 	async queryPayment(providerOrderId: string): Promise<ProviderPayment | null> {
+		const result = await this.queryPaymentWithDiagnostics(providerOrderId);
+		if (result.outcome === "rejected")
+			throw new AlipayError(
+				"Alipay rejected the payment query",
+				"provider",
+				"ALIPAY_QUERY_REJECTED",
+				queryResponseErrorDiagnostics(result.response),
+			);
+		if (result.outcome === "mismatch")
+			throw new AlipayError(
+				"Alipay query did not match the order",
+				"provider",
+				"ALIPAY_QUERY_ORDER_MISMATCH",
+				queryResponseErrorDiagnostics(result.response),
+			);
+		return result.payment;
+	}
+
+	async queryPaymentWithDiagnostics(
+		providerOrderId: string,
+	): Promise<AlipayQueryInspection> {
 		let signed: string;
 		try {
 			signed = this.sdk.sdkExecute("alipay.trade.query", {
@@ -279,42 +319,49 @@ export class AlipayProvider implements FiatPaymentProvider {
 				"ALIPAY_QUERY_SIGNING_FAILED",
 			);
 		}
-		const response = await this.requestGateway(signed);
-		const parsed = queryResponseSchema.safeParse(response.data);
+		const gatewayResponse = await this.requestGateway(signed);
+		const parsed = queryResponseSchema.safeParse(gatewayResponse.data);
 		if (!parsed.success)
 			throw new AlipayError(
 				"Alipay query response is invalid",
 				"provider",
 				"ALIPAY_QUERY_RESPONSE_INVALID",
 			);
+		const responseData = parsed.data;
+		const response: AlipayQueryResponse = {
+			code: responseData.code,
+			message: responseData.msg,
+			subCode: responseData.sub_code ?? null,
+			subMessage: responseData.sub_msg ?? null,
+			externalOrderId: responseData.out_trade_no ?? null,
+			providerTradeId: responseData.trade_no ?? null,
+			tradeStatus: responseData.trade_status ?? null,
+			totalAmount: responseData.total_amount ?? null,
+			receiptAmount: responseData.receipt_amount ?? null,
+			paidAt: responseData.send_pay_date ?? null,
+		};
 		if (
-			parsed.data.code === "40004" &&
-			parsed.data.sub_code === "ACQ.TRADE_NOT_EXIST"
+			responseData.code === "40004" &&
+			responseData.sub_code === "ACQ.TRADE_NOT_EXIST"
 		)
-			return null;
-		if (parsed.data.code !== "10000") {
-			const gatewayCode = safeDiagnosticCode(parsed.data.code);
-			const gatewaySubCode = safeDiagnosticCode(parsed.data.sub_code);
-			throw new AlipayError(
-				"Alipay rejected the payment query",
-				"provider",
-				"ALIPAY_QUERY_REJECTED",
-				{
-					...(gatewayCode ? { gatewayCode } : {}),
-					...(gatewaySubCode ? { gatewaySubCode } : {}),
-				},
-			);
-		}
-		const status = isPaidTradeStatus(parsed.data.trade_status)
+			return { outcome: "not_found", response, payment: null };
+		if (responseData.code !== "10000")
+			return { outcome: "rejected", response, payment: null };
+		if (
+			responseData.out_trade_no &&
+			responseData.out_trade_no !== providerOrderId
+		)
+			return { outcome: "mismatch", response, payment: null };
+		const status = isPaidTradeStatus(responseData.trade_status)
 			? "succeeded"
-			: parsed.data.trade_status === "TRADE_CLOSED"
+			: responseData.trade_status === "TRADE_CLOSED"
 				? "rejected"
 				: "pending";
 		if (
 			status === "succeeded" &&
-			(!parsed.data.trade_no ||
-				!parsed.data.total_amount ||
-				parsed.data.out_trade_no !== providerOrderId)
+			(!responseData.trade_no ||
+				!(responseData.total_amount ?? responseData.receipt_amount) ||
+				responseData.out_trade_no !== providerOrderId)
 		)
 			throw new AlipayError(
 				"Alipay query did not match the order",
@@ -322,17 +369,21 @@ export class AlipayProvider implements FiatPaymentProvider {
 				"ALIPAY_QUERY_ORDER_MISMATCH",
 			);
 		return {
-			providerTradeId: parsed.data.trade_no ?? providerOrderId,
-			amountMinor:
-				status === "succeeded"
-					? decimalToMinor(
-							parsed.data.total_amount ?? parsed.data.receipt_amount ?? "0",
-							2,
-						)
-					: "0",
-			currency: "CNY",
-			currencyDecimals: 2,
-			status,
+			outcome: "success",
+			response,
+			payment: {
+				providerTradeId: responseData.trade_no ?? providerOrderId,
+				amountMinor:
+					status === "succeeded"
+						? decimalToMinor(
+								responseData.total_amount ?? responseData.receipt_amount ?? "0",
+								2,
+							)
+						: "0",
+				currency: "CNY",
+				currencyDecimals: 2,
+				status,
+			},
 		};
 	}
 
@@ -412,6 +463,15 @@ function isPaidTradeStatus(status: string | undefined) {
 
 function safeDiagnosticCode(value: string | undefined) {
 	return value && /^[A-Za-z0-9_.-]{1,64}$/.test(value) ? value : undefined;
+}
+
+function queryResponseErrorDiagnostics(response: AlipayQueryResponse) {
+	const gatewayCode = safeDiagnosticCode(response.code);
+	const gatewaySubCode = safeDiagnosticCode(response.subCode ?? undefined);
+	return {
+		...(gatewayCode ? { gatewayCode } : {}),
+		...(gatewaySubCode ? { gatewaySubCode } : {}),
+	};
 }
 
 function transportErrorCode(error: unknown) {

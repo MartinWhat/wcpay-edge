@@ -134,6 +134,51 @@ describe("AlipayProvider", () => {
 		);
 	});
 
+	it("returns a filtered response for live order review", async () => {
+		const response = signedQueryResponse(
+			{
+				code: "10000",
+				msg: "Success",
+				out_trade_no: "order-001",
+				trade_no: "2026103122000000000001",
+				trade_status: "TRADE_SUCCESS",
+				total_amount: "1.01",
+				send_pay_date: "2026-10-31 22:00:00",
+				buyer_logon_id: "***@example.com",
+			},
+			privateKey,
+		);
+		const provider = await AlipayProvider.create(
+			config,
+			vi.fn(async () => new Response(JSON.stringify(response))),
+		);
+
+		await expect(
+			provider.queryPaymentWithDiagnostics("order-001"),
+		).resolves.toEqual({
+			outcome: "success",
+			response: {
+				code: "10000",
+				message: "Success",
+				subCode: null,
+				subMessage: null,
+				externalOrderId: "order-001",
+				providerTradeId: "2026103122000000000001",
+				tradeStatus: "TRADE_SUCCESS",
+				totalAmount: "1.01",
+				receiptAmount: null,
+				paidAt: "2026-10-31 22:00:00",
+			},
+			payment: {
+				providerTradeId: "2026103122000000000001",
+				amountMinor: "101",
+				currency: "CNY",
+				currencyDecimals: 2,
+				status: "succeeded",
+			},
+		});
+	});
+
 	it("includes Alipay business codes when a query is rejected", async () => {
 		const response = signedQueryResponse(
 			{
